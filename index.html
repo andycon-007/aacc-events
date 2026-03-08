@@ -193,6 +193,11 @@ const DEFAULT_SETTINGS = {
   setupComplete: false,
 };
 
+const TYPE_COLOR = {
+  Sundowner:"#F97316",Gala:"#A855F7",Conference:"#3B82F6",
+  Networking:"#22C55E",Cultural:"#EF4444",Other:"#94A3B8"
+};
+
 // ── Platform config ───────────────────────────────────────────────────────────
 const ALL_PLATFORMS = [
   {
@@ -1608,7 +1613,6 @@ const KNOWN_EVENTS = [
   {id:"australian-gala-2026-5-15",title:"2026 Australian Gala",date:"2026-05-15",starts:"Fri May 15 2026",ends:"Fri May 15 2026",venue:"The Revaire",address:"7122 Old Katy Road, Houston TX 77024",description:"An elegant evening celebrating the bond between Australia and Texas. Cocktail reception, dinner with Australian and Texan flavors, and wines from Australia's wine regions.",registration:"Unknown",url:"https://www.aacc-texas.org/events.html#!event/2026/5/15/2026-australian-gala",type:"Gala",imageUrl:"https://d1tif55lvfk8gc.cloudfront.net/691b4db1ad7446cd3e0ce594.jpg"},
   {id:"houston-sundowner-2026-6-11",title:"Houston Sundowner",date:"2026-06-11",starts:"Thu Jun 11 2026, 5:30pm CDT",ends:"Thu Jun 11 2026, 7:30pm CDT",venue:"Platypus Brewing",address:"1902 Washington Ave, Houston TX 77007",description:"Monthly Houston Sundowner — connect with Australians and Texans over drinks and nibbles.",registration:"Unknown",url:"https://www.aacc-texas.org/events.html#!event/2026/6/11/houston-sundowner",type:"Sundowner",imageUrl:"https://d1tif55lvfk8gc.cloudfront.net/69432e630c78f9a26b02c395.jpg"},
 ];
-
 
 ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
 </script>
