@@ -5,128 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-  <title>AACC Texas — Event Social Media Assistant v11</title>
+  <title>Social Media Assistant</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
     body { background:#080F1E; font-family:Georgia,serif; }
-
-    /* API Key Banner */
-    #api-banner {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
-      background: #0d1b35; border-bottom: 2px solid #FFCD00;
-      padding: 8px 16px;
-      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-      font-size: 13px; color: #E2D9C5;
-    }
-    #api-banner.hidden { display: none; }
-    #api-banner label { font-weight: bold; white-space: nowrap; }
-    #api-banner input {
-      flex: 1; min-width: 160px; max-width: 340px;
-      padding: 6px 10px; border-radius: 6px;
-      border: 1px solid #FFCD00; background: #080F1E; color: #E2D9C5;
-      font-size: 13px; font-family: monospace;
-    }
-    #api-banner .btn-save {
-      padding: 6px 14px; border-radius: 6px; border: none; cursor: pointer;
-      background: #FFCD00; color: #001A4D; font-weight: bold; font-size: 13px;
-      white-space: nowrap;
-    }
-    #api-banner .btn-hide {
-      padding: 4px 8px; border-radius: 4px; border: 1px solid #6B8FAD;
-      background: transparent; color: #6B8FAD; font-size: 11px; cursor: pointer;
-      white-space: nowrap; margin-left: auto;
-    }
-    #api-banner .status { font-size: 12px; white-space: nowrap; }
-    #api-banner .help-link { font-size: 11px; color: #6B8FAD; white-space: nowrap; }
-    #api-banner .help-link a { color: #FFCD00; }
-
-    /* Key saved indicator in corner */
-    #key-indicator {
-      position: fixed; top: 6px; right: 10px; z-index: 10000;
-      background: #1a3a1a; border: 1px solid #4CAF50; border-radius: 20px;
-      padding: 3px 10px; font-size: 11px; color: #4CAF50;
-      cursor: pointer; display: none;
-    }
-
-    #root { padding-top: 0; }
-    #root.has-banner { padding-top: 56px; }
-
-    /* Mobile tweaks */
-    @media (max-width: 600px) {
-      #api-banner { padding: 8px 12px; gap: 8px; }
-      #api-banner input { font-size: 12px; }
-    }
+    @media (max-width:600px) { body { font-size:14px; } }
   </style>
 </head>
 <body>
 
-<div id="api-banner">
-  <label>🔑 Anthropic API Key</label>
-  <input type="password" id="key-input" placeholder="sk-ant-api03-..." autocomplete="off" autocorrect="off" spellcheck="false"/>
-  <button class="btn-save" onclick="saveKey()">Save</button>
-  <span class="status" id="key-status"></span>
-  <span class="help-link">
-    <a href="https://console.anthropic.com/settings/keys" target="_blank">Get free key ↗</a>
-  </span>
-  <button class="btn-hide" onclick="hideBanner()">Hide ✕</button>
-</div>
-
-<div id="key-indicator" onclick="showBanner()">🔑 Key saved ✓</div>
 <div id="root"></div>
 
 <script>
-  // --- API Key management ---
-  function loadKey() {
-    const k = localStorage.getItem("aacc-api-key");
-    if (k) {
-      document.getElementById("key-input").value = k;
-      window.ANTHROPIC_API_KEY = k;
-      setStatus("✓ Key loaded", "#4CAF50");
-    }
-  }
-  function saveKey() {
-    const k = document.getElementById("key-input").value.trim();
-    if (!k) { setStatus("⚠ Enter a key", "#FF6B6B"); return; }
-    if (!k.startsWith("sk-ant-")) { setStatus("⚠ Should start with sk-ant-", "#FF6B6B"); return; }
-    localStorage.setItem("aacc-api-key", k);
-    window.ANTHROPIC_API_KEY = k;
-    setStatus("✓ Saved!", "#4CAF50");
-    setTimeout(hideBanner, 1200);
-  }
-  function setStatus(msg, color) {
-    const el = document.getElementById("key-status");
-    el.textContent = msg; el.style.color = color;
-  }
-  function hideBanner() {
-    document.getElementById("api-banner").classList.add("hidden");
-    document.getElementById("root").classList.remove("has-banner");
-    if (window.ANTHROPIC_API_KEY) {
-      document.getElementById("key-indicator").style.display = "block";
-    }
-  }
-  function showBanner() {
-    document.getElementById("api-banner").classList.remove("hidden");
-    document.getElementById("root").classList.add("has-banner");
-    document.getElementById("key-indicator").style.display = "none";
-  }
-
-  // Allow Enter key to save
-  document.getElementById("key-input").addEventListener("keydown", e => {
-    if (e.key === "Enter") saveKey();
-  });
-
-  // localStorage storage polyfill
+  // localStorage storage polyfill (window.storage API)
   window.storage = {
     get: (key) => { try { const v=localStorage.getItem(key); return Promise.resolve(v ? {key,value:v} : null); } catch(e) { return Promise.resolve(null); } },
     set: (key, value) => { try { localStorage.setItem(key,String(value)); return Promise.resolve({key,value}); } catch(e) { return Promise.resolve(null); } },
     delete: (key) => { try { localStorage.removeItem(key); return Promise.resolve({key,deleted:true}); } catch(e) { return Promise.resolve(null); } },
     list: (prefix) => { try { const keys=Object.keys(localStorage).filter(k=>!prefix||k.startsWith(prefix)); return Promise.resolve({keys}); } catch(e) { return Promise.resolve({keys:[]}); } }
   };
-
-  loadKey();
 </script>
 
 <script type="text/babel">
@@ -435,9 +335,8 @@ function SettingsPage({settings, onSave, onClose, isFirstRun}) {
       {/* Header */}
       <div style={{background:"linear-gradient(135deg,#00205B,#001540)",borderBottom:"2px solid #FFCD00",padding:"18px 28px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:"12px"}}>
         <div style={{display:"flex",alignItems:"center",gap:"14px"}}>
-          <div style={{fontSize:"36px"}}>🦘</div>
           <div>
-            <div style={{fontSize:"18px",fontWeight:"bold",color:"#FFCD00",letterSpacing:"2px",textTransform:"uppercase"}}>AACC Texas · Settings</div>
+            <div style={{fontSize:"18px",fontWeight:"bold",color:"#FFCD00",letterSpacing:"2px",textTransform:"uppercase"}}>Settings</div>
             <div style={{fontSize:"11px",color:"#93B4D4",letterSpacing:"1px",textTransform:"uppercase",marginTop:"2px"}}>{isFirstRun?"Welcome — let's get you set up":"Configure your posting preferences"}</div>
           </div>
         </div>
@@ -532,6 +431,15 @@ function SettingsPage({settings, onSave, onClose, isFirstRun}) {
             </div>
           )}
         </Section>
+
+        {/* ── About ──────────────────────────────────────────────────────── */}
+        <div style={{background:"rgba(0,20,60,.3)",border:"1px solid #1E3A5F",borderRadius:"12px",padding:"16px 20px"}}>
+          <div style={{fontSize:"13px",color:"#6B8FAD",textTransform:"uppercase",letterSpacing:"1px",marginBottom:"12px"}}>About</div>
+          <div style={{fontSize:"14px",color:"#93B4D4",lineHeight:"1.8"}}>
+            <div>Created by <strong style={{color:"#E2D9C5"}}>AndyCon</strong> · March 2026</div>
+            <div style={{marginTop:"6px"}}>Send feedback to: <a href="mailto:andycon@gmail.com" style={{color:"#FFCD00"}}>andycon@gmail.com</a></div>
+          </div>
+        </div>
 
         {/* ── Save button ─────────────────────────────────────────────────── */}
         <div style={{display:"flex",flexDirection:"column",gap:"10px",alignItems:"center"}}>
@@ -755,7 +663,8 @@ function App() {
   const generatePost = useCallback(async(event)=>{
     if (!settings.setupComplete) { setShowSettings(true); return; }
     setGenId(event.id);
-    const platformList = activePlatforms.map(p=>{
+    const platforms = activePlatforms.length > 0 ? activePlatforms : ALL_PLATFORMS;
+    const platformList = platforms.map(p=>{
       const limits={linkedin:"150-200 words, professional, hashtags",twitter:"MAX 260 CHARS — punchy, 2-3 hashtags",facebook:"100-150 words, warm friendly",instagram:"150-200 words, emojis, 10-15 hashtags at end",email:"200-300 words, formal invitation style, include event details and registration link",file:"200-300 words, full event details, all platforms combined"};
       return `"${p.key}": "${limits[p.key]||'100-150 words'}"`;
     }).join(",\n  ");
@@ -768,7 +677,7 @@ function App() {
       const parsed=JSON.parse(match[0]);
       const newPosts={...posts,[event.id]:{...parsed,generatedAt:new Date().toISOString()}};
       await savePosts(newPosts);
-      setEditedPosts(prev=>({...prev,[event.id]:Object.fromEntries(activePlatforms.map(p=>[p.key,parsed[p.key]||""]))}));
+      setEditedPosts(prev=>({...prev,[event.id]:Object.fromEntries(platforms.map(p=>[p.key,parsed[p.key]||""]))}));
       setExpandedId(event.id);
       toast("Posts generated! ✍️");
       const epForExport={...editedPosts,[event.id]:Object.fromEntries(activePlatforms.map(p=>[p.key,parsed[p.key]||""]))};
@@ -790,9 +699,16 @@ function App() {
   };
   const openModal=(event,platformKey)=>{
     const text=(editedPosts[event.id]?.[platformKey])||(posts[event.id]?.[platformKey])||"";
+    if (!text) { toast("No post text found — generate posts first","err"); return; }
     setModal({event,platformKey,text,editText:text});
   };
   const deleteEvent=async(id)=>{
+    const ev = events.find(e=>e.id===id);
+    const hasPost = !!posts[id];
+    const msg = hasPost
+      ? `Delete "${ev?.title}"?\n\nThis will also remove the generated social media posts for this event.`
+      : `Delete "${ev?.title}"?`;
+    if (!window.confirm(msg)) return;
     await saveEvents(events.filter(e=>e.id!==id));
     const np={...posts}; delete np[id]; await savePosts(np);
     const ne={...editedPosts}; delete ne[id]; setEditedPosts(ne);
@@ -845,10 +761,8 @@ function App() {
       {/* Header */}
       <div style={{position:"relative",zIndex:1,background:"linear-gradient(135deg,#00205B,#001540)",borderBottom:"2px solid #FFCD00",padding:"18px 28px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"12px"}}>
         <div style={{display:"flex",alignItems:"center",gap:"14px"}}>
-          <div style={{fontSize:"42px",lineHeight:1}}>🦘</div>
           <div>
-            <div style={{fontSize:"20px",fontWeight:"bold",color:"#FFCD00",letterSpacing:"2px",textTransform:"uppercase"}}>AACC Texas</div>
-            <div style={{fontSize:"11px",color:"#93B4D4",letterSpacing:"2px",textTransform:"uppercase",marginTop:"2px"}}>Event Social Media Assistant · v11</div>
+            <div style={{fontSize:"20px",fontWeight:"bold",color:"#FFCD00",letterSpacing:"2px",textTransform:"uppercase"}}>Social Media Assistant</div>
           </div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:"10px",flexWrap:"wrap"}}>
@@ -856,9 +770,7 @@ function App() {
             <div style={{color:"#93B4D4"}}>📅 {TODAY.toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}</div>
             {lastScan&&<div style={{marginTop:"2px"}}>🔄 Last scan: {lastScan}</div>}
           </div>
-          {Object.keys(posts).length>0&&(
-            <button onClick={()=>setShowExport(true)} style={{background:"rgba(255,205,0,.1)",color:"#FFCD00",border:"1px solid #FFCD0033",borderRadius:"7px",padding:"7px 14px",cursor:"pointer",fontSize:"12px",fontWeight:"bold"}}>⬇️ Export</button>
-          )}
+
           <button onClick={()=>setShowBatch(true)} style={{position:"relative",background:queue.length>0?"rgba(34,197,94,.15)":"rgba(255,255,255,.06)",color:queue.length>0?"#4ADE80":"#6B8FAD",border:`1px solid ${queue.length>0?"#4ADE8066":"#1E3A5F"}`,borderRadius:"7px",padding:"7px 14px",cursor:"pointer",fontSize:"13px",fontWeight:queue.length>0?"bold":"normal",display:"flex",alignItems:"center",gap:"6px"}}>
             🗂️ Queue{queue.length>0&&<span style={{background:"#4ADE80",color:"#001A4D",borderRadius:"10px",padding:"1px 7px",fontSize:"11px",fontWeight:"bold"}}>{queue.length}</span>}
           </button>
@@ -899,7 +811,7 @@ function App() {
                 {scanning?<span style={{animation:"pulse 1.2s infinite"}}>⏳ Scanning…</span>:"🔍 Auto Scan"}
               </button>
               <button onClick={()=>setShowScript(s=>!s)} style={{background:"transparent",color:"#93B4D4",border:"1px solid #1E3A5F",borderRadius:"8px",padding:"8px 16px",cursor:"pointer",fontSize:"12px"}}>{showScript?"▲ Hide Script":"🖥️ Console Script"}</button>
-              <button onClick={()=>setShowPaste(s=>!s)} style={{background:"transparent",color:"#93B4D4",border:"1px solid #1E3A5F",borderRadius:"8px",padding:"8px 16px",cursor:"pointer",fontSize:"12px"}}>{showPaste?"▲ Hide":"📋 Paste JSON"}</button>
+
             </div>
           </div>
           {showScript&&(
@@ -911,15 +823,7 @@ function App() {
               </div>
             </div>
           )}
-          {showPaste&&(
-            <div style={{marginTop:"16px",borderTop:"1px solid #1E3A5F",paddingTop:"16px"}}>
-              <textarea value={pasteText} onChange={e=>setPasteText(e.target.value)} placeholder="Paste JSON array here..." style={{width:"100%",minHeight:"80px",background:"rgba(0,0,0,.4)",border:"1px solid #2A4A7F",borderRadius:"8px",color:"#E2D9C5",padding:"10px",fontSize:"11px",fontFamily:"monospace",resize:"vertical",boxSizing:"border-box"}}/>
-              <div style={{display:"flex",gap:"8px",marginTop:"8px"}}>
-                <button onClick={processPaste} disabled={!pasteText.trim()} style={{background:"linear-gradient(135deg,#FFCD00,#E6B800)",color:"#001A4D",border:"none",borderRadius:"8px",padding:"9px 16px",cursor:"pointer",fontSize:"12px",fontWeight:"bold"}}>✅ Load Events</button>
-                <button onClick={()=>{setPasteText("");setShowPaste(false);}} style={{background:"transparent",color:"#6B8FAD",border:"1px solid #1E3A5F",borderRadius:"8px",padding:"9px 14px",cursor:"pointer",fontSize:"12px"}}>Cancel</button>
-              </div>
-            </div>
-          )}
+
         </div>
 
         {/* Tabs */}
@@ -953,6 +857,7 @@ function App() {
             onUpdateText={(pKey,val)=>updateEditedPost(ev.id,pKey,val)}
             onSaveEdits={()=>saveEditedPost(ev.id)} onOpenModal={(pKey)=>openModal(ev,pKey)}
             onAddToQueue={(pKey)=>addToQueue(ev,pKey)} onIsQueued={(pKey)=>isQueued(ev.id,pKey)}
+            events={events}
           />)
         )}
       </div>
@@ -1367,7 +1272,7 @@ function EventCard({event,post,editedPost,isPast,isExpanded,isGenerating,onGener
         <div style={{borderTop:"1px solid #1E3A5F",padding:"16px 20px"}}>
           {/* Full event image */}
           <img src={event.imageUrl} alt={event.title} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
-          <PostEditor post={post} editedPost={editedPost} eventId={event.id} event={event} onUpdateText={onUpdateText} onSaveEdits={onSaveEdits} onOpenModal={onOpenModal} onAddToQueue={onAddToQueue} onIsQueued={onIsQueued}/>
+          <PostEditor post={post} editedPost={editedPost} eventId={event.id} event={event} onUpdateText={onUpdateText} onSaveEdits={onSaveEdits} onOpenModal={onOpenModal} onAddToQueue={onAddToQueue} onIsQueued={onIsQueued} activePlatforms={activePlatforms}/>
         </div>
       )}
     </div>
@@ -1389,7 +1294,7 @@ function PostCard({event,post,editedPost,onUpdateText,onSaveEdits,onOpenModal,ac
       </div>
       <div style={{padding:"16px 20px"}}>
         <img src={event.imageUrl} alt={event.title} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
-        <PostEditor post={post} editedPost={editedPost} eventId={event.id} event={event} onUpdateText={onUpdateText} onSaveEdits={onSaveEdits} onOpenModal={onOpenModal} onAddToQueue={onAddToQueue} onIsQueued={onIsQueued}/>
+        <PostEditor post={post} editedPost={editedPost} eventId={event.id} event={event} onUpdateText={onUpdateText} onSaveEdits={onSaveEdits} onOpenModal={onOpenModal} onAddToQueue={onAddToQueue} onIsQueued={onIsQueued} activePlatforms={activePlatforms}/>
       </div>
     </div>
   );
@@ -1398,7 +1303,7 @@ function PostCard({event,post,editedPost,onUpdateText,onSaveEdits,onOpenModal,ac
 // ═════════════════════════════════════════════════════════════════════════════
 // POST EDITOR — editable textareas + Post buttons per platform
 // ═════════════════════════════════════════════════════════════════════════════
-function PostEditor({post, editedPost, eventId, event, onUpdateText, onSaveEdits, onOpenModal, onAddToQueue, onIsQueued}) {
+function PostEditor({post, editedPost, eventId, event, onUpdateText, onSaveEdits, onOpenModal, onAddToQueue, onIsQueued, activePlatforms}) {
   const [dirty, setDirty] = useState(false);
 
   const handleChange = (pKey, val) => {
@@ -1613,6 +1518,8 @@ const KNOWN_EVENTS = [
   {id:"australian-gala-2026-5-15",title:"2026 Australian Gala",date:"2026-05-15",starts:"Fri May 15 2026",ends:"Fri May 15 2026",venue:"The Revaire",address:"7122 Old Katy Road, Houston TX 77024",description:"An elegant evening celebrating the bond between Australia and Texas. Cocktail reception, dinner with Australian and Texan flavors, and wines from Australia's wine regions.",registration:"Unknown",url:"https://www.aacc-texas.org/events.html#!event/2026/5/15/2026-australian-gala",type:"Gala",imageUrl:"https://d1tif55lvfk8gc.cloudfront.net/691b4db1ad7446cd3e0ce594.jpg"},
   {id:"houston-sundowner-2026-6-11",title:"Houston Sundowner",date:"2026-06-11",starts:"Thu Jun 11 2026, 5:30pm CDT",ends:"Thu Jun 11 2026, 7:30pm CDT",venue:"Platypus Brewing",address:"1902 Washington Ave, Houston TX 77007",description:"Monthly Houston Sundowner — connect with Australians and Texans over drinks and nibbles.",registration:"Unknown",url:"https://www.aacc-texas.org/events.html#!event/2026/6/11/houston-sundowner",type:"Sundowner",imageUrl:"https://d1tif55lvfk8gc.cloudfront.net/69432e630c78f9a26b02c395.jpg"},
 ];
+
+
 
 ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
 </script>
