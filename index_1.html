@@ -1,0 +1,1620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <title>AACC Texas — Event Social Media Assistant v11</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    body { background:#080F1E; font-family:Georgia,serif; }
+
+    /* API Key Banner */
+    #api-banner {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+      background: #0d1b35; border-bottom: 2px solid #FFCD00;
+      padding: 8px 16px;
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      font-size: 13px; color: #E2D9C5;
+    }
+    #api-banner.hidden { display: none; }
+    #api-banner label { font-weight: bold; white-space: nowrap; }
+    #api-banner input {
+      flex: 1; min-width: 160px; max-width: 340px;
+      padding: 6px 10px; border-radius: 6px;
+      border: 1px solid #FFCD00; background: #080F1E; color: #E2D9C5;
+      font-size: 13px; font-family: monospace;
+    }
+    #api-banner .btn-save {
+      padding: 6px 14px; border-radius: 6px; border: none; cursor: pointer;
+      background: #FFCD00; color: #001A4D; font-weight: bold; font-size: 13px;
+      white-space: nowrap;
+    }
+    #api-banner .btn-hide {
+      padding: 4px 8px; border-radius: 4px; border: 1px solid #6B8FAD;
+      background: transparent; color: #6B8FAD; font-size: 11px; cursor: pointer;
+      white-space: nowrap; margin-left: auto;
+    }
+    #api-banner .status { font-size: 12px; white-space: nowrap; }
+    #api-banner .help-link { font-size: 11px; color: #6B8FAD; white-space: nowrap; }
+    #api-banner .help-link a { color: #FFCD00; }
+
+    /* Key saved indicator in corner */
+    #key-indicator {
+      position: fixed; top: 6px; right: 10px; z-index: 10000;
+      background: #1a3a1a; border: 1px solid #4CAF50; border-radius: 20px;
+      padding: 3px 10px; font-size: 11px; color: #4CAF50;
+      cursor: pointer; display: none;
+    }
+
+    #root { padding-top: 0; }
+    #root.has-banner { padding-top: 56px; }
+
+    /* Mobile tweaks */
+    @media (max-width: 600px) {
+      #api-banner { padding: 8px 12px; gap: 8px; }
+      #api-banner input { font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="api-banner">
+  <label>🔑 Anthropic API Key</label>
+  <input type="password" id="key-input" placeholder="sk-ant-api03-..." autocomplete="off" autocorrect="off" spellcheck="false"/>
+  <button class="btn-save" onclick="saveKey()">Save</button>
+  <span class="status" id="key-status"></span>
+  <span class="help-link">
+    <a href="https://console.anthropic.com/settings/keys" target="_blank">Get free key ↗</a>
+  </span>
+  <button class="btn-hide" onclick="hideBanner()">Hide ✕</button>
+</div>
+
+<div id="key-indicator" onclick="showBanner()">🔑 Key saved ✓</div>
+<div id="root"></div>
+
+<script>
+  // --- API Key management ---
+  function loadKey() {
+    const k = localStorage.getItem("aacc-api-key");
+    if (k) {
+      document.getElementById("key-input").value = k;
+      window.ANTHROPIC_API_KEY = k;
+      setStatus("✓ Key loaded", "#4CAF50");
+    }
+  }
+  function saveKey() {
+    const k = document.getElementById("key-input").value.trim();
+    if (!k) { setStatus("⚠ Enter a key", "#FF6B6B"); return; }
+    if (!k.startsWith("sk-ant-")) { setStatus("⚠ Should start with sk-ant-", "#FF6B6B"); return; }
+    localStorage.setItem("aacc-api-key", k);
+    window.ANTHROPIC_API_KEY = k;
+    setStatus("✓ Saved!", "#4CAF50");
+    setTimeout(hideBanner, 1200);
+  }
+  function setStatus(msg, color) {
+    const el = document.getElementById("key-status");
+    el.textContent = msg; el.style.color = color;
+  }
+  function hideBanner() {
+    document.getElementById("api-banner").classList.add("hidden");
+    document.getElementById("root").classList.remove("has-banner");
+    if (window.ANTHROPIC_API_KEY) {
+      document.getElementById("key-indicator").style.display = "block";
+    }
+  }
+  function showBanner() {
+    document.getElementById("api-banner").classList.remove("hidden");
+    document.getElementById("root").classList.add("has-banner");
+    document.getElementById("key-indicator").style.display = "none";
+  }
+
+  // Allow Enter key to save
+  document.getElementById("key-input").addEventListener("keydown", e => {
+    if (e.key === "Enter") saveKey();
+  });
+
+  // localStorage storage polyfill
+  window.storage = {
+    get: (key) => { try { const v=localStorage.getItem(key); return Promise.resolve(v ? {key,value:v} : null); } catch(e) { return Promise.resolve(null); } },
+    set: (key, value) => { try { localStorage.setItem(key,String(value)); return Promise.resolve({key,value}); } catch(e) { return Promise.resolve(null); } },
+    delete: (key) => { try { localStorage.removeItem(key); return Promise.resolve({key,deleted:true}); } catch(e) { return Promise.resolve(null); } },
+    list: (prefix) => { try { const keys=Object.keys(localStorage).filter(k=>!prefix||k.startsWith(prefix)); return Promise.resolve({keys}); } catch(e) { return Promise.resolve({keys:[]}); } }
+  };
+
+  loadKey();
+</script>
+
+<script type="text/babel">
+const {useState,useEffect,useCallback,useRef}=React;
+
+// ── Storage keys ──────────────────────────────────────────────────────────────
+const SK_EVENTS = "aacc-events-v3";
+const SK_POSTS  = "aacc-posts-v3";
+const SK_SCAN   = "aacc-last-scan-v3";
+
+const TODAY = new Date();
+TODAY.setHours(0,0,0,0);
+const ONE_MONTH_AGO = new Date(TODAY);
+ONE_MONTH_AGO.setMonth(ONE_MONTH_AGO.getMonth() - 1);
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+// Parse YYYY-MM-DD as LOCAL noon to avoid UTC midnight rolling back a day in CDT/CST (UTC-5/6)
+function localDate(str) {
+  if (!str) return null;
+  const iso = String(str).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return new Date(Number(iso[1]), Number(iso[2])-1, Number(iso[3]), 12, 0, 0);
+  return new Date(str);
+}
+const fmtDate = d => { if(!d) return ""; const x=localDate(d); return (x&&!isNaN(x)) ? x.toLocaleDateString("en-US",{weekday:"short",year:"numeric",month:"short",day:"numeric"}) : ""; };
+const isFuture = d => { if(!d) return false; const x=localDate(d); if(!x||isNaN(x)) return false; const c=new Date(x); c.setHours(0,0,0,0); return c>=TODAY; };
+const isPast   = d => { if(!d) return false; const x=localDate(d); if(!x||isNaN(x)) return false; const c=new Date(x); c.setHours(0,0,0,0); return c<TODAY; };
+
+function parseDate(s) {
+  if (!s) return null;
+  // "Thu Mar 12 2026" style: named months parse as local time, safe
+  const m = s.match(/(\w{3}\s+\w{3}\s+\d+\s+\d{4})/);
+  if (m) {
+    const d = new Date(m[1]);
+    if (!isNaN(d)) return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  }
+  // YYYY-MM-DD passthrough (already correct format, localDate() will handle display)
+  const iso = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (iso) return iso[1];
+  const d2 = new Date(s);
+  return isNaN(d2) ? null : d2.getFullYear()+"-"+String(d2.getMonth()+1).padStart(2,"0")+"-"+String(d2.getDate()).padStart(2,"0");
+}
+function parseType(t) {
+  if (!t) return "Other"; const s=t.toLowerCase();
+  if (s.includes("sundowner")) return "Sundowner";
+  if (s.includes("gala"))      return "Gala";
+  if (s.includes("conference")||s.includes("ausii")) return "Conference";
+  if (s.includes("coffee")||s.includes("monday")||s.includes("network")||s.includes("multinational")) return "Networking";
+  if (s.includes("anzac")||s.includes("remembrance")) return "Cultural";
+  return "Other";
+}
+
+
+// ── Storage keys ──────────────────────────────────────────────────────────────
+const SK_SETTINGS = "aacc-settings-v1";
+
+// ── Default settings ──────────────────────────────────────────────────────────
+const DEFAULT_SETTINGS = {
+  apiKey: "",
+  sharedApiKey: "",
+  useSharedKey: false,
+  eventSourceUrl: "https://www.aacc-texas.org/events.html#!event-list",
+  platforms: { linkedin:true, twitter:true, facebook:false, instagram:false, email:false, file:false },
+  emailTo: "",
+  setupComplete: false,
+};
+
+const TYPE_COLOR = {
+  Sundowner:"#F97316",Gala:"#A855F7",Conference:"#3B82F6",
+  Networking:"#22C55E",Cultural:"#EF4444",Other:"#94A3B8"
+};
+
+// ── Platform config ───────────────────────────────────────────────────────────
+const ALL_PLATFORMS = [
+  {
+    key:"linkedin", label:"LinkedIn", icon:"in", color:"#0A66C2", bgColor:"#E8F0F9",
+    charLimit:3000,
+    postAction: (text, settings) => {
+      navigator.clipboard.writeText(text);
+      window.open(settings?.linkedinUrl || "https://www.linkedin.com/feed/?shareActive=true","_blank");
+      return {status:"copied+opened", note:"Text copied — paste into LinkedIn post composer."};
+    },
+  },
+  {
+    key:"twitter", label:"X / Twitter", icon:"𝕏", color:"#000000", bgColor:"#F7F9F9",
+    charLimit:280,
+    postAction: (text) => {
+      const encoded = encodeURIComponent(text.substring(0,280));
+      window.open(`https://twitter.com/intent/tweet?text=${encoded}`,"_blank");
+      return {status:"intent", note:"X/Twitter opened with post pre-filled — just click Post."};
+    },
+  },
+  {
+    key:"facebook", label:"Facebook", icon:"f", color:"#1877F2", bgColor:"#F0F2F5",
+    charLimit:63206,
+    postAction: (text, settings) => {
+      navigator.clipboard.writeText(text);
+      window.open(settings?.facebookUrl || "https://www.facebook.com/","_blank");
+      return {status:"copied+opened", note:"Text copied — paste into Facebook post composer."};
+    },
+  },
+  {
+    key:"instagram", label:"Instagram", icon:"◎", color:"#E1306C", bgColor:"#FAFAFA",
+    charLimit:2200,
+    postAction: (text, settings) => {
+      navigator.clipboard.writeText(text);
+      window.open(settings?.instagramUrl || "https://www.instagram.com/","_blank");
+      return {status:"copied+opened", note:"Text copied — paste in Instagram (Creator Studio or app)."};
+    },
+  },
+  {
+    key:"email", label:"Email", icon:"✉️", color:"#059669", bgColor:"#ECFDF5",
+    charLimit:10000,
+    postAction: (text, settings, event) => {
+      const subject = encodeURIComponent(`AACC Texas Event: ${event?.title||""}`);
+      const body = encodeURIComponent(text);
+      const to = settings?.emailTo ? encodeURIComponent(settings.emailTo) : "";
+      window.open(`mailto:${to}?subject=${subject}&body=${body}`,"_blank");
+      return {status:"mailto", note:"Your email client opened with the post pre-filled."};
+    },
+  },
+  {
+    key:"file", label:"Save as File", icon:"💾", color:"#7C3AED", bgColor:"#F5F3FF",
+    charLimit:999999,
+    postAction: (text, settings, event) => {
+      const ts = new Date().toISOString().split("T")[0];
+      const filename = `AACC-${(event?.title||"post").replace(/[^a-zA-Z0-9]/g,"-").substring(0,40)}-${ts}.md`;
+      const content = `# ${event?.title||"AACC Texas Event"}\n_${fmtDate(event?.date)}_\n\n---\n\n${text}`;
+      downloadFile(filename, content, "text/markdown");
+      return {status:"downloaded", note:`Saved as ${filename}`};
+    },
+  },
+];
+
+// ── callClaude (uses settings for API key) ────────────────────────────────────
+async function callClaude(messages, system, settings) {
+  const apiKey = (settings?.useSharedKey ? settings?.sharedApiKey : settings?.apiKey)
+    || window.ANTHROPIC_API_KEY || localStorage.getItem("aacc-api-key") || "";
+  if (!apiKey) throw new Error("NO_API_KEY");
+  const r = await fetch("https://api.anthropic.com/v1/messages",{
+    method:"POST",
+    headers:{"Content-Type":"application/json","x-api-key":apiKey,
+             "anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+    body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,system,messages})
+  });
+  if (!r.ok) {
+    const e = await r.json().catch(()=>({}));
+    throw new Error(e?.error?.message||"API error "+r.status);
+  }
+  return r.json();
+}
+
+// ── Console scraper script ────────────────────────────────────────────────────
+const CONSOLE_SCRIPT = `(async function(){function wait(ms){return new Promise(r=>setTimeout(r,ms))}function get(raw,label){var idx=raw.indexOf(label+'\\t');if(idx===-1)return null;return raw.substring(idx+label.length+1).split('\\n')[0].trim()}function scrape(){var raw=document.body.innerText;var title=document.title.replace(' - Australian American Chamber of Commerce Texas (AACC)','').trim();var paras=Array.from(document.querySelectorAll('p')).map(p=>p.textContent.trim()).filter(s=>s.length>20).slice(0,4).join(' ');var imgEl=document.getElementById('SFevtinfimg');var imageUrl=imgEl?imgEl.src.split('?')[0]:null;return{id:window.location.href.replace(/.*#!event\\//,'').replace(/\\//g,'-'),title,url:window.location.href,venue:get(raw,'Venue'),address:get(raw,'Address'),starts:get(raw,'Starts'),ends:get(raw,'Ends'),registration:raw.includes('REGISTRATION IS CLOSED')?'Closed':raw.includes('Register')?'Open':'Unknown',description:paras.substring(0,600),imageUrl}}window.location.hash='!event-list';await wait(4000);var links=[...new Set(Array.from(document.querySelectorAll('a[href*="!event/"]')).map(a=>a.href))];var events=[];for(var i=0;i<links.length;i++){window.location.hash=links[i].split('#')[1];await wait(3000);if(window.location.hostname==='www.aacc-texas.org'){events.push(scrape())}else{var r2=document.body.innerText;events.push({id:links[i].replace(/.*#!event\\//,'').replace(/\\//g,'-'),title:document.title.split(' - ')[0].trim(),url:links[i],venue:null,address:null,starts:null,ends:null,registration:r2.includes('Register')?'Open':'Unknown',description:Array.from(document.querySelectorAll('p')).map(p=>p.textContent.trim()).filter(s=>s.length>20).slice(0,3).join(' ').substring(0,400),imageUrl:null});window.location.href=links[i];await wait(3500)}}var out=JSON.stringify(events);console.log('AACC_EVENTS_DATA:'+out);try{copy(out)}catch(e){}alert('Done! '+events.length+' events scraped with images. Paste JSON into the app.');return events})();`;
+
+// ── Image utilities ───────────────────────────────────────────────────────────
+// Claude.ai CSP blocks direct CloudFront images — proxy through images.weserv.nl
+function proxyImg(url) {
+  // Direct CloudFront URLs load fine from a.claude.ai — no proxy needed
+  return url || null;
+}
+
+async function fetchImageAsBase64(url) {
+  // CloudFront blocks CORS entirely — crossOrigin="anonymous" poisons the browser cache
+  // and breaks subsequent plain <img src> loads for the same URL.
+  // For exports, just embed the URL as a markdown image link instead of base64.
+  return null;
+}
+
+// ── Export utilities ──────────────────────────────────────────────────────────
+function downloadFile(filename, content, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
+}
+
+function exportMarkdown(eventsToExport, posts, editedPosts) {
+  const ts = new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"});
+  let md = `# AACC Texas — Social Media Posts\n_Exported ${ts}_\n\n---\n\n`;
+  eventsToExport.forEach(ev => {
+    const p = posts[ev.id]; if (!p) return;
+    const ep = editedPosts[ev.id] || {};
+    md += `## ${ev.title}\n`;
+    md += `**Date:** ${fmtDate(ev.date)}  \n`;
+    if (ev.venue)   md += `**Venue:** ${ev.venue}  \n`;
+    if (ev.address) md += `**Address:** ${ev.address}  \n`;
+    md += `**Type:** ${ev.type}  \n`;
+    if (ev.url) md += `**Link:** ${ev.url}  \n`;
+    md += `\n`;
+    // Embed image
+    if (ev.imageUrl) {
+      md += `![${ev.title}](${ev.imageUrl})\n\n`;
+    }
+    ALL_PLATFORMS.forEach(pl => {
+      const text = ep[pl.key] || p[pl.key] || "";
+      if (!text) return;
+      md += `### ${pl.label}\n\n${text}\n\n`;
+    });
+    md += `---\n\n`;
+  });
+  downloadFile(`AACC-Texas-Posts-${new Date().toISOString().split("T")[0]}.md`, md, "text/markdown");
+}
+
+function exportCSV(eventsToExport, posts, editedPosts) {
+  const rows = [["Event","Date","Venue","Type","Platform","Post Text","Character Count","Generated At"]];
+  eventsToExport.forEach(ev => {
+    const p = posts[ev.id]; if (!p) return;
+    const ep = editedPosts[ev.id] || {};
+    ALL_PLATFORMS.forEach(pl => {
+      const text = ep[pl.key] || p[pl.key] || "";
+      if (!text) return;
+      const safe = (s) => `"${String(s).replace(/"/g,'""')}"`;
+      rows.push([safe(ev.title), safe(fmtDate(ev.date)), safe(ev.venue||""), safe(ev.type), safe(pl.label), safe(text), text.length, safe(p.generatedAt ? new Date(p.generatedAt).toLocaleDateString() : "")]);
+    });
+  });
+  const csv = rows.map(r => r.join(",")).join("\n");
+  downloadFile(`AACC-Texas-Posts-${new Date().toISOString().split("T")[0]}.csv`, csv, "text/csv");
+}
+
+function exportTxt(eventsToExport, posts, editedPosts) {
+  const ts = new Date().toLocaleString();
+  let txt = `AACC TEXAS — SOCIAL MEDIA POSTS\nExported: ${ts}\n${"=".repeat(60)}\n\n`;
+  eventsToExport.forEach(ev => {
+    const p = posts[ev.id]; if (!p) return;
+    const ep = editedPosts[ev.id] || {};
+    txt += `EVENT: ${ev.title}\n`;
+    txt += `Date:  ${fmtDate(ev.date)}\n`;
+    if (ev.venue)   txt += `Venue: ${ev.venue}\n`;
+    if (ev.address) txt += `Addr:  ${ev.address}\n`;
+    txt += `\n`;
+    ALL_PLATFORMS.forEach(pl => {
+      const text = ep[pl.key] || p[pl.key] || "";
+      if (!text) return;
+      txt += `[ ${pl.label.toUpperCase()} — ${text.length} chars ]\n`;
+      txt += `${"-".repeat(40)}\n${text}\n\n`;
+    });
+    txt += `${"=".repeat(60)}\n\n`;
+  });
+  downloadFile(`AACC-Texas-Posts-${new Date().toISOString().split("T")[0]}.txt`, txt, "text/plain");
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// MAIN APP
+// ═════════════════════════════════════════════════════════════════════════════
+// ── Event image placeholder (no external URLs needed) ─────────────────────────
+const TYPE_ICONS = { Sundowner:"🍺", Gala:"🎩", Conference:"💼", Networking:"🤝", Cultural:"🏛️", Other:"📅" };
+const TYPE_GRADIENTS = {
+  Sundowner:  "linear-gradient(135deg,#1a3a6b,#c47c00)",
+  Gala:       "linear-gradient(135deg,#1a1a4e,#8b0000)",
+  Conference: "linear-gradient(135deg,#0d2b4e,#0d4e3a)",
+  Networking: "linear-gradient(135deg,#1a3a1a,#3a5f0b)",
+  Cultural:   "linear-gradient(135deg,#3a1a00,#6b3a00)",
+  Other:      "linear-gradient(135deg,#1a2a3a,#2a3a4a)",
+};
+function EventImage({ event, style={} }) {
+  const icon = TYPE_ICONS[event.type] || "📅";
+  const bg   = TYPE_GRADIENTS[event.type] || TYPE_GRADIENTS.Other;
+  const defaultStyle = { display:"flex", alignItems:"center", justifyContent:"center",
+    background: bg, width:"100%", height:"100%", flexDirection:"column", gap:"4px" };
+  return (
+    <div style={{...defaultStyle, ...style}}>
+      <span style={{fontSize: style.fontSize || "28px", lineHeight:1}}>{icon}</span>
+      <span style={{fontSize:"9px", color:"rgba(255,255,255,0.6)", textTransform:"uppercase",
+        letterSpacing:"1px", textAlign:"center", padding:"0 4px"}}>{event.type}</span>
+    </div>
+  );
+}
+
+
+// ═════════════════════════════════════════════════════════════════════════════
+// SETTINGS PAGE
+// ═════════════════════════════════════════════════════════════════════════════
+function SettingsPage({settings, onSave, onClose, isFirstRun}) {
+  const [local, setLocal] = useState({...DEFAULT_SETTINGS,...settings});
+  const [saved, setSaved] = useState(false);
+  const [showSharedKey, setShowSharedKey] = useState(false);
+  const [showPersonalKey, setShowPersonalKey] = useState(false);
+
+  const set = (k,v) => setLocal(p=>({...p,[k]:v}));
+  const setPlatform = (k,v) => setLocal(p=>({...p,platforms:{...p.platforms,[k]:v}}));
+
+  const activePlatforms = Object.entries(local.platforms).filter(([,v])=>v).length;
+  const hasApiKey = local.useSharedKey ? !!local.sharedApiKey.trim() : !!local.apiKey.trim();
+  const canSave = activePlatforms >= 1 && hasApiKey;
+
+  const handleSave = () => {
+    const s = {...local, setupComplete: canSave};
+    onSave(s);
+    setSaved(true);
+    setTimeout(()=>{ setSaved(false); if(onClose) onClose(); }, 1200);
+  };
+
+  const platformDefs = [
+    {key:"linkedin",  icon:"in",  label:"LinkedIn",    color:"#0A66C2", desc:"Professional network — copy+paste workflow"},
+    {key:"twitter",   icon:"𝕏",   label:"X / Twitter", color:"#000",    desc:"Deep link pre-fills post — one click to send"},
+    {key:"facebook",  icon:"f",   label:"Facebook",    color:"#1877F2", desc:"Copy+paste workflow"},
+    {key:"instagram", icon:"◎",   label:"Instagram",   color:"#E1306C", desc:"Copy+paste (mobile app or Creator Studio)"},
+    {key:"email",     icon:"✉️",  label:"Email",       color:"#059669", desc:"Opens email client with pre-filled subject & body"},
+    {key:"file",      icon:"💾",  label:"Save as File",color:"#7C3AED", desc:"Downloads a Markdown (.md) file"},
+  ];
+
+  return (
+    <div style={{minHeight:"100vh",background:"#080F1E",fontFamily:"Georgia,'Times New Roman',serif",color:"#E2D9C5",paddingBottom:"80px"}}>
+      {/* Header */}
+      <div style={{background:"linear-gradient(135deg,#00205B,#001540)",borderBottom:"2px solid #FFCD00",padding:"18px 28px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:"12px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"14px"}}>
+          <div style={{fontSize:"36px"}}>🦘</div>
+          <div>
+            <div style={{fontSize:"18px",fontWeight:"bold",color:"#FFCD00",letterSpacing:"2px",textTransform:"uppercase"}}>AACC Texas · Settings</div>
+            <div style={{fontSize:"11px",color:"#93B4D4",letterSpacing:"1px",textTransform:"uppercase",marginTop:"2px"}}>{isFirstRun?"Welcome — let's get you set up":"Configure your posting preferences"}</div>
+          </div>
+        </div>
+        {!isFirstRun&&onClose&&(
+          <button onClick={onClose} style={{background:"transparent",color:"#6B8FAD",border:"1px solid #1E3A5F",borderRadius:"8px",padding:"8px 16px",cursor:"pointer",fontSize:"13px"}}>← Back to App</button>
+        )}
+      </div>
+
+      <div style={{maxWidth:"700px",margin:"0 auto",padding:"28px 16px",display:"flex",flexDirection:"column",gap:"24px"}}>
+
+        {isFirstRun&&(
+          <div style={{background:"rgba(255,205,0,.08)",border:"1px solid #FFCD0044",borderRadius:"12px",padding:"16px 20px",fontSize:"14px",color:"#FFCD00",lineHeight:"1.7"}}>
+            👋 <strong>Welcome!</strong> Complete these steps to start generating and posting AACC Texas event content. You only need to do this once.
+          </div>
+        )}
+
+        {/* ── Step 1: API Key ─────────────────────────────────────────────── */}
+        <Section num="1" title="Anthropic API Key" subtitle="Required to generate social media posts" complete={hasApiKey}>
+          <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
+            <label style={{display:"flex",alignItems:"center",gap:"10px",cursor:"pointer"}}>
+              <Toggle checked={!local.useSharedKey} onChange={()=>set("useSharedKey",false)}/>
+              <div>
+                <div style={{fontSize:"14px",color:"#E2D9C5",fontWeight:"bold"}}>Use my personal API key</div>
+                <div style={{fontSize:"12px",color:"#6B8FAD"}}>You pay for your own usage (~$0.01–0.02 per Generate)</div>
+              </div>
+            </label>
+            {!local.useSharedKey&&(
+              <div style={{position:"relative"}}>
+                <input type={showPersonalKey?"text":"password"} value={local.apiKey} onChange={e=>set("apiKey",e.target.value)}
+                  placeholder="sk-ant-api03-..." style={inputStyle}/>
+                <button onClick={()=>setShowPersonalKey(s=>!s)} style={eyeBtn}>{showPersonalKey?"🙈":"👁️"}</button>
+                {!local.apiKey&&(
+                  <div style={{marginTop:"8px",fontSize:"12px",color:"#6B8FAD"}}>
+                    Get yours at <a href="https://platform.claude.com/settings/keys" target="_blank" rel="noopener noreferrer" style={{color:"#3B82F6"}}>platform.claude.com/settings/keys</a>
+                  </div>
+                )}
+              </div>
+            )}
+            <label style={{display:"flex",alignItems:"center",gap:"10px",cursor:"pointer"}}>
+              <Toggle checked={local.useSharedKey} onChange={()=>set("useSharedKey",true)}/>
+              <div>
+                <div style={{fontSize:"14px",color:"#E2D9C5",fontWeight:"bold"}}>Use shared key (admin-provided)</div>
+                <div style={{fontSize:"12px",color:"#6B8FAD"}}>Admin pays for all usage — enter the key they shared with you</div>
+              </div>
+            </label>
+            {local.useSharedKey&&(
+              <div style={{position:"relative"}}>
+                <input type={showSharedKey?"text":"password"} value={local.sharedApiKey} onChange={e=>set("sharedApiKey",e.target.value)}
+                  placeholder="sk-ant-api03-..." style={inputStyle}/>
+                <button onClick={()=>setShowSharedKey(s=>!s)} style={eyeBtn}>{showSharedKey?"🙈":"👁️"}</button>
+              </div>
+            )}
+          </div>
+        </Section>
+
+        {/* ── Step 2: Event Source ────────────────────────────────────────── */}
+        <Section num="2" title="Event Source URL" subtitle="The web page to scan for events" complete={!!local.eventSourceUrl.trim()}>
+          <input type="url" value={local.eventSourceUrl} onChange={e=>set("eventSourceUrl",e.target.value)}
+            placeholder="https://www.aacc-texas.org/events.html#!event-list"
+            style={{...inputStyle,fontFamily:"monospace",fontSize:"12px"}}/>
+          <div style={{fontSize:"12px",color:"#4A6A8A",marginTop:"8px",lineHeight:"1.6"}}>
+            💡 This URL is used when you click "Auto Scan". For Weebly-based sites, use the Console Script method instead.
+          </div>
+        </Section>
+
+        {/* ── Step 3: Posting Platforms ───────────────────────────────────── */}
+        <Section num="3" title="Posting Platforms" subtitle={`Select at least one • ${activePlatforms} selected`} complete={activePlatforms>=1}>
+          <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
+            {platformDefs.map(p=>(
+              <label key={p.key} style={{display:"flex",alignItems:"center",gap:"12px",padding:"12px 16px",background:local.platforms[p.key]?"rgba(0,48,143,.2)":"rgba(0,0,0,.2)",border:`1px solid ${local.platforms[p.key]?"#2A4A7F":"#1E3A5F"}`,borderRadius:"10px",cursor:"pointer",transition:"all .15s"}}>
+                <div style={{width:"18px",height:"18px",borderRadius:"4px",border:`2px solid ${local.platforms[p.key]?p.color:"#2A4A7F"}`,background:local.platforms[p.key]?p.color:"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",transition:"all .15s"}}>
+                  {local.platforms[p.key]&&<span style={{color:"#fff",fontSize:"11px",lineHeight:1,fontWeight:"bold"}}>✓</span>}
+                </div>
+                <input type="checkbox" checked={!!local.platforms[p.key]} onChange={e=>setPlatform(p.key,e.target.checked)} style={{display:"none"}}/>
+                <div style={{width:"28px",height:"28px",borderRadius:"6px",background:p.color,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"12px",flexShrink:0}}>{p.icon}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:"14px",color:"#E2D9C5",fontWeight:"bold"}}>{p.label}</div>
+                  <div style={{fontSize:"12px",color:"#6B8FAD"}}>{p.desc}</div>
+                </div>
+              </label>
+            ))}
+          </div>
+
+          {/* Email recipient */}
+          {local.platforms.email&&(
+            <div style={{marginTop:"12px",padding:"14px 16px",background:"rgba(5,150,105,.08)",border:"1px solid #05966933",borderRadius:"10px"}}>
+              <div style={{fontSize:"13px",color:"#E2D9C5",fontWeight:"bold",marginBottom:"8px"}}>✉️ Default Email Recipient (optional)</div>
+              <input type="email" value={local.emailTo} onChange={e=>set("emailTo",e.target.value)}
+                placeholder="e.g. members@aacc-texas.org"
+                style={inputStyle}/>
+              <div style={{fontSize:"12px",color:"#4A6A8A",marginTop:"6px"}}>Leave blank to open email client with empty To: field</div>
+            </div>
+          )}
+        </Section>
+
+        {/* ── Save button ─────────────────────────────────────────────────── */}
+        <div style={{display:"flex",flexDirection:"column",gap:"10px",alignItems:"center"}}>
+          {!canSave&&(
+            <div style={{fontSize:"13px",color:"#F87171",textAlign:"center",lineHeight:"1.6"}}>
+              {!hasApiKey&&"⚠️ Add an API key  "}
+              {activePlatforms<1&&"⚠️ Select at least one platform"}
+            </div>
+          )}
+          <button onClick={handleSave} disabled={!canSave} style={{
+            background:canSave?"linear-gradient(135deg,#FFCD00,#E6B800)":"#1E3A5F",
+            color:canSave?"#001A4D":"#4A6A8A",border:"none",borderRadius:"10px",
+            padding:"14px 40px",cursor:canSave?"pointer":"not-allowed",
+            fontSize:"16px",fontWeight:"bold",width:"100%",maxWidth:"320px",
+            transition:"all .2s",
+          }}>
+            {saved?"✅ Settings Saved!":isFirstRun?"✅ Save & Start Using App":"💾 Save Settings"}
+          </button>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+// ── Helper UI components ──────────────────────────────────────────────────────
+const inputStyle = {
+  width:"100%",padding:"10px 14px",background:"rgba(0,0,0,.4)",border:"1px solid #2A4A7F",
+  borderRadius:"8px",color:"#E2D9C5",fontSize:"14px",fontFamily:"inherit",boxSizing:"border-box",
+  outline:"none",
+};
+const eyeBtn = {
+  position:"absolute",right:"10px",top:"50%",transform:"translateY(-50%)",
+  background:"transparent",border:"none",cursor:"pointer",fontSize:"16px",padding:"4px",
+};
+
+function Toggle({checked, onChange}) {
+  return (
+    <div onClick={onChange} style={{width:"36px",height:"20px",borderRadius:"10px",background:checked?"#3B82F6":"#2A4A7F",position:"relative",cursor:"pointer",flexShrink:0,transition:"background .2s"}}>
+      <div style={{position:"absolute",top:"2px",left:checked?"18px":"2px",width:"16px",height:"16px",borderRadius:"50%",background:"#fff",transition:"left .2s"}}/>
+    </div>
+  );
+}
+
+function Section({num, title, subtitle, complete, children}) {
+  return (
+    <div style={{background:"rgba(0,20,60,.5)",border:`1px solid ${complete?"#2A6A3F":"#1E3A5F"}`,borderRadius:"14px",overflow:"hidden"}}>
+      <div style={{padding:"16px 20px",borderBottom:"1px solid #1E3A5F22",display:"flex",alignItems:"center",gap:"12px"}}>
+        <div style={{width:"28px",height:"28px",borderRadius:"50%",background:complete?"#14532D":"#1E3A5F",border:`2px solid ${complete?"#4ADE80":"#2A4A7F"}`,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"13px",color:complete?"#4ADE80":"#6B8FAD",flexShrink:0}}>
+          {complete?"✓":num}
+        </div>
+        <div>
+          <div style={{fontSize:"15px",fontWeight:"bold",color:"#E2D9C5"}}>{title}</div>
+          <div style={{fontSize:"12px",color:complete?"#4ADE80":"#6B8FAD",marginTop:"1px"}}>{subtitle}</div>
+        </div>
+      </div>
+      <div style={{padding:"16px 20px"}}>{children}</div>
+    </div>
+  );
+}
+
+
+// ═════════════════════════════════════════════════════════════════════════════
+// MAIN APP
+// ═════════════════════════════════════════════════════════════════════════════
+function App() {
+  const [events,      setEvents]      = useState([]);
+  const [posts,       setPosts]       = useState({});
+  const [editedPosts, setEditedPosts] = useState({});
+  const [lastScan,    setLastScan]    = useState(null);
+  const [scanning,    setScanning]    = useState(false);
+  const [scanStep,    setScanStep]    = useState("");
+  const [genId,       setGenId]       = useState(null);
+  const [activeTab,   setActiveTab]   = useState("upcoming");
+  const [expandedId,  setExpandedId]  = useState(null);
+  const [notif,       setNotif]       = useState(null);
+  const [modal,       setModal]       = useState(null);
+  const [showExport,  setShowExport]  = useState(false);
+  const [showScript,  setShowScript]  = useState(false);
+  const [showPaste,   setShowPaste]   = useState(false);
+  const [pasteText,   setPasteText]   = useState("");
+  const [scriptCopied,setScriptCopied]= useState(false);
+  const [showSettings,setShowSettings]= useState(false);
+  const [settings,    setSettings]    = useState(DEFAULT_SETTINGS);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  // ── Batch queue: [{eventId, platformKey, text}]
+  const [queue,       setQueue]       = useState([]);
+  const [showBatch,   setShowBatch]   = useState(false);
+
+  // ── Load all persisted data ─────────────────────────────────────────────────
+  useEffect(()=>{
+    (async()=>{
+      // Load settings first
+      try {
+        const rs = await window.storage.get(SK_SETTINGS).catch(()=>null);
+        if (rs) {
+          const s = JSON.parse(rs.value);
+          const merged = {...DEFAULT_SETTINGS,...s, platforms:{...DEFAULT_SETTINGS.platforms,...(s.platforms||{})}};
+          setSettings(merged);
+          if (!merged.setupComplete) setShowSettings(true); // first run
+        } else {
+          setShowSettings(true); // brand new user
+        }
+      } catch { setShowSettings(true); }
+      setSettingsLoaded(true);
+
+      // Load events
+      try {
+        const knownMap = Object.fromEntries(KNOWN_EVENTS.map(e=>[e.id,e]));
+        let evs = KNOWN_EVENTS.map(e=>({...e}));
+        const r = await window.storage.get(SK_EVENTS).catch(()=>null);
+        if (r) {
+          const stored = JSON.parse(r.value);
+          evs = evs.map(e=>{ const s=stored.find(x=>x.id===e.id); return s?{...e,...s,imageUrl:e.imageUrl}:e; });
+          const knownIds = new Set(evs.map(e=>e.id));
+          const extras = stored.filter(e=>!knownIds.has(e.id));
+          if (extras.length) evs=[...evs,...extras].sort((a,b)=>a.date>b.date?1:-1);
+        }
+        await window.storage.set(SK_EVENTS, JSON.stringify(evs));
+        setEvents(evs);
+      } catch {}
+
+      // Load posts
+      try {
+        let rp = await window.storage.get(SK_POSTS).catch(()=>null);
+        if (!rp) rp = await window.storage.get("aacc-posts-v2").catch(()=>null);
+        if (rp) {
+          const p=JSON.parse(rp.value); setPosts(p);
+          await window.storage.set(SK_POSTS, JSON.stringify(p));
+          const ep={};
+          Object.keys(p).forEach(id=>{
+            ep[id]={linkedin:p[id].linkedin||"",twitter:p[id].twitter||"",facebook:p[id].facebook||"",instagram:p[id].instagram||"",email:p[id].email||"",file:p[id].file||""};
+          });
+          setEditedPosts(ep);
+        }
+      } catch {}
+      try { const r=await window.storage.get(SK_SCAN).catch(()=>null); if(r) setLastScan(r.value); } catch {}
+    })();
+  },[]);
+
+  const toast = (msg,type="ok") => { setNotif({msg,type}); setTimeout(()=>setNotif(null),4000); };
+  const saveEvents = async (ev) => { setEvents(ev); await window.storage.set(SK_EVENTS,JSON.stringify(ev)); };
+  const savePosts  = async (p)  => { setPosts(p);  await window.storage.set(SK_POSTS, JSON.stringify(p));  };
+
+  const saveSettings = async (s) => {
+    setSettings(s);
+    await window.storage.set(SK_SETTINGS, JSON.stringify(s));
+    toast("Settings saved ✓");
+  };
+
+  // ── Active platforms (from settings) ──────────────────────────────────────
+  const activePlatforms = ALL_PLATFORMS.filter(p => settings.platforms[p.key]);
+
+  // ── Queue helpers ──────────────────────────────────────────────────────────
+  const addToQueue = (event, platformKey) => {
+    const text = (editedPosts[event.id]?.[platformKey]) || (posts[event.id]?.[platformKey]) || "";
+    setQueue(prev => {
+      const filtered = prev.filter(q => !(q.eventId===event.id && q.platformKey===platformKey));
+      return [...filtered, {eventId:event.id, platformKey, text, eventTitle:event.title, eventDate:event.date}];
+    });
+    toast(`Added to queue: ${ALL_PLATFORMS.find(p=>p.key===platformKey)?.label}`);
+  };
+  const removeFromQueue = (eventId, platformKey) => {
+    setQueue(prev => prev.filter(q => !(q.eventId===eventId && q.platformKey===platformKey)));
+  };
+  const updateQueueText = (eventId, platformKey, text) => {
+    setQueue(prev => prev.map(q => q.eventId===eventId && q.platformKey===platformKey ? {...q,text} : q));
+  };
+  const isQueued = (eventId, platformKey) => queue.some(q=>q.eventId===eventId && q.platformKey===platformKey);
+
+
+  // ── Process scraped events ─────────────────────────────────────────────────
+  const processScrapedEvents = useCallback((raw)=>{
+    if(!Array.isArray(raw)){toast("Invalid data format","err");return;}
+    const incoming=raw.map(e=>({...e,date:e.date||parseDate(e.starts),type:e.type||parseType(e.title)}))
+      .filter(e=>e.date&&localDate(e.date)>=ONE_MONTH_AGO);
+    setEvents(prev=>{
+      const incomingMap=Object.fromEntries(incoming.map(e=>[e.id,e]));
+      const existingUpdated=prev.filter(e=>localDate(e.date)>=ONE_MONTH_AGO).map(e=>incomingMap[e.id]?{...e,...incomingMap[e.id]}:e);
+      const existingIds=new Set(existingUpdated.map(e=>e.id));
+      const brandNew=incoming.filter(e=>!existingIds.has(e.id));
+      const merged=[...existingUpdated,...brandNew].sort((a,b)=>localDate(a.date)-localDate(b.date));
+      window.storage.set(SK_EVENTS,JSON.stringify(merged));
+      return merged;
+    });
+    const now=new Date().toLocaleString();
+    setLastScan(now); window.storage.set(SK_SCAN,now);
+    setScanStep(`✅ Done! Loaded ${incoming.length} event(s).`);
+    toast(`${incoming.length} event(s) loaded.`);
+    setScanning(false); setShowPaste(false); setPasteText("");
+  },[]);
+
+  // ── Auto scan ──────────────────────────────────────────────────────────────
+  const autoScan = useCallback(async()=>{
+    if (!settings.setupComplete) { setShowSettings(true); return; }
+    setScanning(true); setScanStep("🤖 Searching for events...");
+    try {
+      const data=await callClaude([{role:"user",content:`Search for AACC Texas upcoming events. Today is ${TODAY.toISOString().split("T")[0]}. I need events from ${ONE_MONTH_AGO.toISOString().split("T")[0]} onwards from aacc-texas.org/events.html. Return ONLY a JSON array (no markdown). Each object: {"id":"slug-YYYY-MM-DD","title":"","date":"YYYY-MM-DD","starts":"","ends":"","venue":"","address":"","description":"","registration":"Open|Closed|Unknown","url":"https://www.aacc-texas.org/events.html#!event/...","type":"Sundowner|Gala|Conference|Networking|Cultural|Other","imageUrl":null}`}],
+        "Return ONLY a raw JSON array. No markdown. No explanation.", settings);
+      const text=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
+      const match=text.replace(/```json|```/g,"").trim().match(/\[[\s\S]*\]/);
+      if(!match){setScanStep("⚠️ Web search failed — loading last known events."); processScrapedEvents(KNOWN_EVENTS); return;}
+      try{processScrapedEvents(JSON.parse(match[0]));}catch{processScrapedEvents(KNOWN_EVENTS);}
+    }catch(e){
+      if(e.message==="NO_API_KEY"){setShowSettings(true); setScanning(false); setScanStep(""); return;}
+      setScanStep("⚠️ Error — loading last known events."); processScrapedEvents(KNOWN_EVENTS);
+    }
+  },[settings, processScrapedEvents]);
+
+  const processPaste=useCallback(()=>{
+    if(!pasteText.trim())return;
+    setScanning(true); setScanStep("🔍 Parsing...");
+    try {
+      const match=pasteText.replace(/```json|```/g,"").trim().match(/\[[\s\S]*\]/);
+      if(match){processScrapedEvents(JSON.parse(match[0]));}
+      else{toast("No JSON array found","err"); setScanning(false);}
+    }catch(e){toast("Parse error: "+e.message,"err"); setScanning(false);}
+  },[pasteText,processScrapedEvents]);
+
+  // ── Generate posts ─────────────────────────────────────────────────────────
+  const generatePost = useCallback(async(event)=>{
+    if (!settings.setupComplete) { setShowSettings(true); return; }
+    setGenId(event.id);
+    const platformList = activePlatforms.map(p=>{
+      const limits={linkedin:"150-200 words, professional, hashtags",twitter:"MAX 260 CHARS — punchy, 2-3 hashtags",facebook:"100-150 words, warm friendly",instagram:"150-200 words, emojis, 10-15 hashtags at end",email:"200-300 words, formal invitation style, include event details and registration link",file:"200-300 words, full event details, all platforms combined"};
+      return `"${p.key}": "${limits[p.key]||'100-150 words'}"`;
+    }).join(",\n  ");
+    try {
+      const data=await callClaude([{role:"user",content:`Create social media posts for this AACC Texas event:\n\nTitle: ${event.title}\nDate: ${fmtDate(event.date)}${event.starts?" ("+event.starts+")":""}\nVenue: ${event.venue||"Texas"}${event.address?" — "+event.address:""}\nDescription: ${event.description||"AACC Texas networking event."}\nType: ${event.type}\nRegistration: ${event.registration}\nURL: ${event.url}\n\nWrite posts for these platforms. Return ONLY this JSON (no markdown):\n{\n  ${platformList}\n}\n\nAll posts must include #AACCTexas #AussieTexas. G'day energy!`}],
+        "Return ONLY valid JSON. No markdown fences. No explanation.", settings);
+      const text=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
+      const match=text.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/);
+      if(!match){toast("Could not parse response — try again","err"); setGenId(null); return;}
+      const parsed=JSON.parse(match[0]);
+      const newPosts={...posts,[event.id]:{...parsed,generatedAt:new Date().toISOString()}};
+      await savePosts(newPosts);
+      setEditedPosts(prev=>({...prev,[event.id]:Object.fromEntries(activePlatforms.map(p=>[p.key,parsed[p.key]||""]))}));
+      setExpandedId(event.id);
+      toast("Posts generated! ✍️");
+      const epForExport={...editedPosts,[event.id]:Object.fromEntries(activePlatforms.map(p=>[p.key,parsed[p.key]||""]))};
+      exportMarkdown([event], newPosts, epForExport);
+    }catch(e){
+      if(e.message==="NO_API_KEY"){setShowSettings(true);}
+      else toast("Error: "+e.message,"err");
+    }
+    setGenId(null);
+  },[posts,settings,activePlatforms]);
+
+  const updateEditedPost=(eventId,platformKey,value)=>{
+    setEditedPosts(prev=>({...prev,[eventId]:{...prev[eventId],[platformKey]:value}}));
+  };
+  const saveEditedPost=async(eventId)=>{
+    const ep=editedPosts[eventId]; if(!ep)return;
+    const newPosts={...posts,[eventId]:{...posts[eventId],...ep,lastEdited:new Date().toISOString()}};
+    await savePosts(newPosts); toast("Edits saved ✓");
+  };
+  const openModal=(event,platformKey)=>{
+    const text=(editedPosts[event.id]?.[platformKey])||(posts[event.id]?.[platformKey])||"";
+    setModal({event,platformKey,text,editText:text});
+  };
+  const deleteEvent=async(id)=>{
+    await saveEvents(events.filter(e=>e.id!==id));
+    const np={...posts}; delete np[id]; await savePosts(np);
+    const ne={...editedPosts}; delete ne[id]; setEditedPosts(ne);
+    toast("Event removed.");
+  };
+  const copyScript=()=>{navigator.clipboard.writeText(CONSOLE_SCRIPT).then(()=>{setScriptCopied(true);setTimeout(()=>setScriptCopied(false),3000);});};
+
+  const upcoming  = events.filter(e=>isFuture(e.date));
+  const past      = events.filter(e=>isPast(e.date));
+  const withPosts = events.filter(e=>posts[e.id]);
+
+  // ── Settings page ──────────────────────────────────────────────────────────
+  if (showSettings) {
+    return (
+      <>
+        <SettingsPage
+          settings={settings}
+          onSave={async(s)=>{ await saveSettings(s); if(s.setupComplete) setShowSettings(false); }}
+          onClose={settings.setupComplete ? ()=>setShowSettings(false) : null}
+          isFirstRun={!settings.setupComplete}
+        />
+        <style>{`@keyframes fadeSlide{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}`}</style>
+      </>
+    );
+  }
+
+  return (
+    <div style={{minHeight:"100vh",background:"#080F1E",fontFamily:"Georgia,'Times New Roman',serif",color:"#E2D9C5"}}>
+      {/* Background glow */}
+      <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0}}>
+        <div style={{position:"absolute",width:"700px",height:"700px",borderRadius:"50%",background:"radial-gradient(circle,rgba(0,48,143,.12) 0%,transparent 70%)",top:"-200px",left:"-200px"}}/>
+        <div style={{position:"absolute",width:"500px",height:"500px",borderRadius:"50%",background:"radial-gradient(circle,rgba(255,205,0,.05) 0%,transparent 70%)",bottom:0,right:"-100px"}}/>
+      </div>
+
+      {/* Toast */}
+      {notif&&<div style={{position:"fixed",top:20,right:20,zIndex:2000,background:notif.type==="err"?"#7F1D1D":"#14532D",border:`1px solid ${notif.type==="err"?"#F87171":"#4ADE80"}`,color:"#fff",padding:"12px 20px",borderRadius:"10px",boxShadow:"0 8px 32px rgba(0,0,0,.5)",fontSize:"14px",animation:"fadeSlide .3s ease"}}>{notif.msg}</div>}
+
+      {/* Modals */}
+      {modal&&<PreviewModal modal={modal} settings={settings} onClose={()=>setModal(null)}
+        onUpdateText={(t)=>{ setModal(m=>({...m,text:t,editText:t})); updateEditedPost(modal.event.id, modal.platformKey, t); }}
+      />}
+      {showExport&&<ExportModal events={events} posts={posts} editedPosts={editedPosts} onClose={()=>setShowExport(false)} toast={toast}/>}
+      {showBatch&&<BatchConfirmModal queue={queue} events={events} settings={settings}
+        onUpdateText={updateQueueText} onRemove={removeFromQueue}
+        onClose={()=>setShowBatch(false)}
+        onPosted={(eventId,platformKey)=>{ removeFromQueue(eventId,platformKey); toast("Posted ✓"); }}
+        toast={toast}
+      />}
+
+      {/* Header */}
+      <div style={{position:"relative",zIndex:1,background:"linear-gradient(135deg,#00205B,#001540)",borderBottom:"2px solid #FFCD00",padding:"18px 28px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"12px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"14px"}}>
+          <div style={{fontSize:"42px",lineHeight:1}}>🦘</div>
+          <div>
+            <div style={{fontSize:"20px",fontWeight:"bold",color:"#FFCD00",letterSpacing:"2px",textTransform:"uppercase"}}>AACC Texas</div>
+            <div style={{fontSize:"11px",color:"#93B4D4",letterSpacing:"2px",textTransform:"uppercase",marginTop:"2px"}}>Event Social Media Assistant · v11</div>
+          </div>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:"10px",flexWrap:"wrap"}}>
+          <div style={{textAlign:"right",fontSize:"12px",color:"#6B8FAD"}}>
+            <div style={{color:"#93B4D4"}}>📅 {TODAY.toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}</div>
+            {lastScan&&<div style={{marginTop:"2px"}}>🔄 Last scan: {lastScan}</div>}
+          </div>
+          {Object.keys(posts).length>0&&(
+            <button onClick={()=>setShowExport(true)} style={{background:"rgba(255,205,0,.1)",color:"#FFCD00",border:"1px solid #FFCD0033",borderRadius:"7px",padding:"7px 14px",cursor:"pointer",fontSize:"12px",fontWeight:"bold"}}>⬇️ Export</button>
+          )}
+          <button onClick={()=>setShowBatch(true)} style={{position:"relative",background:queue.length>0?"rgba(34,197,94,.15)":"rgba(255,255,255,.06)",color:queue.length>0?"#4ADE80":"#6B8FAD",border:`1px solid ${queue.length>0?"#4ADE8066":"#1E3A5F"}`,borderRadius:"7px",padding:"7px 14px",cursor:"pointer",fontSize:"13px",fontWeight:queue.length>0?"bold":"normal",display:"flex",alignItems:"center",gap:"6px"}}>
+            🗂️ Queue{queue.length>0&&<span style={{background:"#4ADE80",color:"#001A4D",borderRadius:"10px",padding:"1px 7px",fontSize:"11px",fontWeight:"bold"}}>{queue.length}</span>}
+          </button>
+          <button onClick={()=>setShowSettings(true)} style={{background:"rgba(255,255,255,.06)",color:"#93B4D4",border:"1px solid #1E3A5F",borderRadius:"7px",padding:"7px 14px",cursor:"pointer",fontSize:"13px"}}>⚙️ Settings</button>
+        </div>
+      </div>
+
+      {/* API key warning banner */}
+      {!settings.setupComplete&&(
+        <div style={{position:"relative",zIndex:1,background:"#7F1D1D",borderBottom:"1px solid #F87171",padding:"12px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:"12px",flexWrap:"wrap"}}>
+          <div style={{fontSize:"13px",color:"#FCA5A5"}}>⚠️ Setup incomplete — add your API key and configure your posting platforms to get started.</div>
+          <button onClick={()=>setShowSettings(true)} style={{background:"#F87171",color:"#7F1D1D",border:"none",borderRadius:"6px",padding:"6px 14px",cursor:"pointer",fontSize:"12px",fontWeight:"bold"}}>Open Settings →</button>
+        </div>
+      )}
+
+      {/* Stats */}
+      <div style={{position:"relative",zIndex:1,display:"flex",borderBottom:"1px solid #1E3A5F"}}>
+        {[{icon:"📋",val:events.length,label:"Total"},{icon:"🗓️",val:upcoming.length,label:"Upcoming"},{icon:"✅",val:past.length,label:"Past"},{icon:"✍️",val:withPosts.length,label:"Posts Ready"}].map(s=>(
+          <div key={s.label} style={{flex:1,padding:"12px 8px",textAlign:"center",background:"rgba(0,0,0,.2)",borderRight:"1px solid #1E3A5F"}}>
+            <div style={{fontSize:"22px",fontWeight:"bold",color:"#FFCD00"}}>{s.icon} {s.val}</div>
+            <div style={{fontSize:"10px",color:"#6B8FAD",letterSpacing:"1px",textTransform:"uppercase",marginTop:"2px"}}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{position:"relative",zIndex:1,maxWidth:"1100px",margin:"0 auto",padding:"24px 16px"}}>
+
+        {/* Scan panel */}
+        <div style={{background:"rgba(0,20,60,.6)",border:"1px solid #1E3A5F",borderRadius:"14px",padding:"20px 24px",marginBottom:"24px"}}>
+          <div style={{display:"flex",alignItems:"flex-start",gap:"16px",flexWrap:"wrap"}}>
+            <div style={{flex:1,minWidth:"220px"}}>
+              <div style={{fontWeight:"bold",color:"#FFCD00",fontSize:"15px",marginBottom:"6px"}}>🌐 Fetch Events</div>
+              <div style={{fontSize:"12px",color:"#6B8FAD",lineHeight:"1.6"}}>Source: <code style={{color:"#93B4D4"}}>{settings.eventSourceUrl||"not set"}</code></div>
+              {scanStep&&<div style={{marginTop:"10px",fontSize:"13px",color:scanStep.startsWith("✅")?"#4ADE80":scanStep.startsWith("❌")?"#F87171":"#93B4D4",background:"rgba(0,0,0,.3)",padding:"8px 12px",borderRadius:"6px",lineHeight:"1.5"}}>{scanStep}</div>}
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:"8px",flexShrink:0}}>
+              <button onClick={autoScan} disabled={scanning} style={{background:scanning?"#1E3A5F":"linear-gradient(135deg,#FFCD00,#E6B800)",color:scanning?"#6B8FAD":"#001A4D",border:"none",borderRadius:"8px",padding:"10px 18px",cursor:scanning?"not-allowed":"pointer",fontSize:"13px",fontWeight:"bold"}}>
+                {scanning?<span style={{animation:"pulse 1.2s infinite"}}>⏳ Scanning…</span>:"🔍 Auto Scan"}
+              </button>
+              <button onClick={()=>setShowScript(s=>!s)} style={{background:"transparent",color:"#93B4D4",border:"1px solid #1E3A5F",borderRadius:"8px",padding:"8px 16px",cursor:"pointer",fontSize:"12px"}}>{showScript?"▲ Hide Script":"🖥️ Console Script"}</button>
+              <button onClick={()=>setShowPaste(s=>!s)} style={{background:"transparent",color:"#93B4D4",border:"1px solid #1E3A5F",borderRadius:"8px",padding:"8px 16px",cursor:"pointer",fontSize:"12px"}}>{showPaste?"▲ Hide":"📋 Paste JSON"}</button>
+            </div>
+          </div>
+          {showScript&&(
+            <div style={{marginTop:"16px",borderTop:"1px solid #1E3A5F",paddingTop:"16px"}}>
+              <div style={{fontSize:"12px",color:"#93B4D4",marginBottom:"8px"}}>Open <a href={settings.eventSourceUrl} target="_blank" rel="noopener noreferrer" style={{color:"#3B82F6"}}>{settings.eventSourceUrl}</a> → F12 → Console → paste & run → copy JSON → paste below.</div>
+              <div style={{position:"relative"}}>
+                <pre style={{background:"rgba(0,0,0,.5)",border:"1px solid #1E3A5F",borderRadius:"8px",padding:"12px",fontSize:"10px",color:"#93B4D4",overflow:"auto",maxHeight:"120px"}}>{CONSOLE_SCRIPT}</pre>
+                <button onClick={copyScript} style={{position:"absolute",top:"8px",right:"8px",background:scriptCopied?"#14532D":"rgba(0,30,80,.8)",color:scriptCopied?"#4ADE80":"#93B4D4",border:`1px solid ${scriptCopied?"#4ADE80":"#1E3A5F"}`,borderRadius:"6px",padding:"4px 10px",cursor:"pointer",fontSize:"11px"}}>{scriptCopied?"✓ Copied!":"📋 Copy"}</button>
+              </div>
+            </div>
+          )}
+          {showPaste&&(
+            <div style={{marginTop:"16px",borderTop:"1px solid #1E3A5F",paddingTop:"16px"}}>
+              <textarea value={pasteText} onChange={e=>setPasteText(e.target.value)} placeholder="Paste JSON array here..." style={{width:"100%",minHeight:"80px",background:"rgba(0,0,0,.4)",border:"1px solid #2A4A7F",borderRadius:"8px",color:"#E2D9C5",padding:"10px",fontSize:"11px",fontFamily:"monospace",resize:"vertical",boxSizing:"border-box"}}/>
+              <div style={{display:"flex",gap:"8px",marginTop:"8px"}}>
+                <button onClick={processPaste} disabled={!pasteText.trim()} style={{background:"linear-gradient(135deg,#FFCD00,#E6B800)",color:"#001A4D",border:"none",borderRadius:"8px",padding:"9px 16px",cursor:"pointer",fontSize:"12px",fontWeight:"bold"}}>✅ Load Events</button>
+                <button onClick={()=>{setPasteText("");setShowPaste(false);}} style={{background:"transparent",color:"#6B8FAD",border:"1px solid #1E3A5F",borderRadius:"8px",padding:"9px 14px",cursor:"pointer",fontSize:"12px"}}>Cancel</button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Tabs */}
+        <div style={{display:"flex",gap:"2px",marginBottom:"20px",borderBottom:"1px solid #1E3A5F"}}>
+          {[{id:"upcoming",label:`🗓️ Upcoming (${upcoming.length})`},{id:"past",label:`✅ Past (${past.length})`},{id:"posts",label:`✍️ Posts (${withPosts.length})`}].map(t=>(
+            <button key={t.id} onClick={()=>setActiveTab(t.id)} style={{background:activeTab===t.id?"rgba(0,48,143,.4)":"transparent",color:activeTab===t.id?"#FFCD00":"#6B8FAD",border:"none",borderBottom:activeTab===t.id?"2px solid #FFCD00":"2px solid transparent",padding:"10px 20px",cursor:"pointer",fontSize:"13px",fontWeight:activeTab===t.id?"bold":"normal",transition:"all .2s"}}>{t.label}</button>
+          ))}
+        </div>
+
+        {activeTab==="upcoming"&&(upcoming.length===0?<EmptyState icon="🦘" msg="No upcoming events yet" sub='Click "Auto Scan" to load events.'/>:
+          upcoming.map(ev=><EventCard key={ev.id} event={ev} post={posts[ev.id]} editedPost={editedPosts[ev.id]}
+            isExpanded={expandedId===ev.id} isGenerating={genId===ev.id} activePlatforms={activePlatforms}
+            onGenerate={()=>generatePost(ev)} onToggle={()=>setExpandedId(expandedId===ev.id?null:ev.id)}
+            onDelete={()=>deleteEvent(ev.id)} onUpdateText={(pKey,val)=>updateEditedPost(ev.id,pKey,val)}
+            onSaveEdits={()=>saveEditedPost(ev.id)} onOpenModal={(pKey)=>openModal(ev,pKey)}
+            onAddToQueue={(pKey)=>addToQueue(ev,pKey)} onIsQueued={(pKey)=>isQueued(ev.id,pKey)}
+          />)
+        )}
+        {activeTab==="past"&&(past.length===0?<EmptyState icon="📅" msg="No past events" sub="Events before today appear here."/>:
+          past.map(ev=><EventCard key={ev.id} event={ev} post={posts[ev.id]} editedPost={editedPosts[ev.id]} isPast
+            isExpanded={expandedId===ev.id} isGenerating={false} activePlatforms={activePlatforms}
+            onToggle={()=>setExpandedId(expandedId===ev.id?null:ev.id)} onDelete={()=>deleteEvent(ev.id)}
+            onUpdateText={(pKey,val)=>updateEditedPost(ev.id,pKey,val)} onSaveEdits={()=>saveEditedPost(ev.id)}
+            onOpenModal={(pKey)=>openModal(ev,pKey)}
+            onAddToQueue={(pKey)=>addToQueue(ev,pKey)} onIsQueued={(pKey)=>isQueued(ev.id,pKey)}
+          />)
+        )}
+        {activeTab==="posts"&&(withPosts.length===0?<EmptyState icon="✍️" msg="No posts yet" sub='Go to Upcoming and click "Generate Post".'/>:
+          withPosts.map(ev=><PostCard key={ev.id} event={ev} post={posts[ev.id]} editedPost={editedPosts[ev.id]}
+            activePlatforms={activePlatforms}
+            onUpdateText={(pKey,val)=>updateEditedPost(ev.id,pKey,val)}
+            onSaveEdits={()=>saveEditedPost(ev.id)} onOpenModal={(pKey)=>openModal(ev,pKey)}
+            onAddToQueue={(pKey)=>addToQueue(ev,pKey)} onIsQueued={(pKey)=>isQueued(ev.id,pKey)}
+          />)
+        )}
+      </div>
+
+      <style>{`
+        @keyframes fadeSlide{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+        @keyframes modalIn{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}
+        textarea:focus,input:focus{outline:1px solid #3B82F6}
+      `}</style>
+    </div>
+  );
+}
+
+
+// ═════════════════════════════════════════════════════════════════════════════
+// PREVIEW / CONFIRM MODAL (with editable text + final confirm)
+// ═════════════════════════════════════════════════════════════════════════════
+function PreviewModal({modal, settings, onClose, onUpdateText}) {
+  const {event, platformKey} = modal;
+  const [text, setText] = useState(modal.text);
+  const [posted, setPosted] = useState(false);
+  const [postNote, setPostNote] = useState("");
+  const pCfg = ALL_PLATFORMS.find(p=>p.key===platformKey);
+  if(!pCfg) return null;
+
+  const handleTextChange = (val) => {
+    setText(val);
+    onUpdateText(val);
+  };
+
+  const handleConfirm = () => {
+    const result = pCfg.postAction(text, settings, event);
+    setPostNote(result.note);
+    setPosted(true);
+  };
+
+  const charOver = platformKey==="twitter" && text.length>280;
+
+  const renderPreview = () => {
+    switch(platformKey) {
+      case "linkedin":  return <LinkedInPreview text={text} event={event}/>;
+      case "twitter":   return <TwitterPreview  text={text} event={event}/>;
+      case "facebook":  return <FacebookPreview text={text} event={event}/>;
+      case "instagram": return <InstagramPreview text={text} event={event}/>;
+      default: return <div style={{padding:"16px",whiteSpace:"pre-wrap",fontSize:"14px",color:"#333"}}>{text}</div>;
+    }
+  };
+
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:1500,background:"rgba(0,0,0,.8)",display:"flex",alignItems:"center",justifyContent:"center",padding:"16px"}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div style={{background:"#0F1A30",border:"1px solid #1E3A5F",borderRadius:"16px",width:"100%",maxWidth:"620px",maxHeight:"92vh",overflow:"hidden",display:"flex",flexDirection:"column",animation:"modalIn .25s ease",boxShadow:"0 24px 64px rgba(0,0,0,.7)"}}>
+
+        {/* Header */}
+        <div style={{padding:"16px 20px",borderBottom:"1px solid #1E3A5F",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
+            <div style={{background:pCfg.color,color:"#fff",width:"32px",height:"32px",borderRadius:"8px",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"14px",flexShrink:0}}>{pCfg.icon}</div>
+            <div>
+              <div style={{fontWeight:"bold",color:"#E2D9C5",fontSize:"15px"}}>Post to {pCfg.label}</div>
+              <div style={{fontSize:"11px",color:"#6B8FAD"}}>{event.title}</div>
+            </div>
+          </div>
+          <button onClick={onClose} style={{background:"transparent",color:"#6B8FAD",border:"none",cursor:"pointer",fontSize:"22px",lineHeight:1,padding:"4px"}}>×</button>
+        </div>
+
+        <div style={{flex:1,overflowY:"auto",padding:"20px",display:"flex",flexDirection:"column",gap:"16px"}}>
+
+          {/* Editable text */}
+          <div>
+            <div style={{fontSize:"12px",color:"#6B8FAD",textTransform:"uppercase",letterSpacing:"1px",marginBottom:"8px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span>✏️ Edit before posting</span>
+              <span style={{color:charOver?"#F87171":text.length>pCfg.charLimit*0.9?"#FFCD00":"#4A6A8A"}}>
+                {text.length}/{pCfg.charLimit} chars {charOver&&"⚠️ TOO LONG"}
+              </span>
+            </div>
+            <textarea
+              value={text}
+              onChange={e=>handleTextChange(e.target.value)}
+              rows={6}
+              style={{width:"100%",background:"rgba(0,0,0,.4)",border:`1px solid ${charOver?"#F87171":"#2A4A7F"}`,borderRadius:"8px",color:"#E2D9C5",padding:"12px",fontSize:"13px",fontFamily:"inherit",resize:"vertical",boxSizing:"border-box",lineHeight:"1.6"}}
+            />
+          </div>
+
+          {/* Preview */}
+          <div>
+            <div style={{fontSize:"12px",color:"#6B8FAD",textTransform:"uppercase",letterSpacing:"1px",marginBottom:"8px"}}>👁️ Live Preview</div>
+            {event.imageUrl&&(
+              <div style={{marginBottom:"10px",borderRadius:"8px",overflow:"hidden",border:"1px solid #1E3A5F",height:"100px"}}>
+                <img src={event.imageUrl} alt={event.title} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+              </div>
+            )}
+            {renderPreview()}
+          </div>
+
+          {/* Platform note */}
+          {platformKey==="instagram"&&(
+            <div style={{padding:"8px 12px",background:"rgba(255,205,0,.08)",border:"1px solid #FFCD0033",borderRadius:"8px",fontSize:"12px",color:"#FFCD00"}}>
+              📱 Instagram: text will be copied to clipboard and Instagram will open. Paste in the app or Creator Studio.
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{padding:"16px 20px",borderTop:"1px solid #1E3A5F"}}>
+          {posted ? (
+            <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
+              <div style={{flex:1,fontSize:"13px",color:"#4ADE80",lineHeight:"1.5"}}>✅ Done! {postNote}</div>
+              <button onClick={onClose} style={{background:"linear-gradient(135deg,#FFCD00,#E6B800)",color:"#001A4D",border:"none",borderRadius:"8px",padding:"9px 20px",cursor:"pointer",fontSize:"13px",fontWeight:"bold"}}>Close</button>
+            </div>
+          ):(
+            <div style={{display:"flex",gap:"10px",justifyContent:"flex-end"}}>
+              <button onClick={onClose} style={{background:"transparent",color:"#6B8FAD",border:"1px solid #1E3A5F",borderRadius:"8px",padding:"9px 20px",cursor:"pointer",fontSize:"13px"}}>Cancel</button>
+              <button onClick={handleConfirm} disabled={charOver} style={{
+                background:charOver?"#1E3A5F":`linear-gradient(135deg,${pCfg.color},${pCfg.color}CC)`,
+                color:"#fff",border:"none",borderRadius:"8px",padding:"9px 24px",
+                cursor:charOver?"not-allowed":"pointer",fontSize:"13px",fontWeight:"bold",
+                boxShadow:"0 4px 16px rgba(0,0,0,.3)",display:"flex",alignItems:"center",gap:"6px",
+              }}>
+                {pCfg.icon} Confirm & Post to {pCfg.label}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// BATCH CONFIRM MODAL — review + confirm all queued posts at once
+// ═════════════════════════════════════════════════════════════════════════════
+function BatchConfirmModal({queue, events, settings, onUpdateText, onRemove, onClose, onPosted, toast}) {
+  const [localQueue, setLocalQueue] = useState(queue.map(q=>({...q})));
+  const [posting, setPosting] = useState(false);
+  const [results, setResults] = useState({}); // {eventId-platformKey: "done"|"error"}
+  const [started, setStarted] = useState(false);
+
+  const updateText = (eventId, platformKey, text) => {
+    setLocalQueue(prev => prev.map(q => q.eventId===eventId && q.platformKey===platformKey ? {...q,text} : q));
+    onUpdateText(eventId, platformKey, text);
+  };
+
+  const remove = (eventId, platformKey) => {
+    setLocalQueue(prev => prev.filter(q => !(q.eventId===eventId && q.platformKey===platformKey)));
+    onRemove(eventId, platformKey);
+  };
+
+  const postAll = async () => {
+    setPosting(true);
+    setStarted(true);
+    const newResults = {};
+    for (const item of localQueue) {
+      const pCfg = ALL_PLATFORMS.find(p=>p.key===item.platformKey);
+      const event = events.find(e=>e.id===item.eventId);
+      if (!pCfg) continue;
+      try {
+        pCfg.postAction(item.text, settings, event);
+        newResults[`${item.eventId}-${item.platformKey}`] = "done";
+        onPosted(item.eventId, item.platformKey);
+      } catch(e) {
+        newResults[`${item.eventId}-${item.platformKey}`] = "error";
+      }
+      setResults({...newResults});
+      // Small delay between posts so windows/tabs don't get blocked
+      await new Promise(r => setTimeout(r, 600));
+    }
+    setPosting(false);
+  };
+
+  const allDone = started && localQueue.every(q => results[`${q.eventId}-${q.platformKey}`] === "done");
+
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:1500,background:"rgba(0,0,0,.85)",display:"flex",alignItems:"center",justifyContent:"center",padding:"16px"}} onClick={e=>{if(e.target===e.currentTarget&&!posting)onClose();}}>
+      <div style={{background:"#0F1A30",border:"1px solid #1E3A5F",borderRadius:"16px",width:"100%",maxWidth:"680px",maxHeight:"92vh",overflow:"hidden",display:"flex",flexDirection:"column",animation:"modalIn .25s ease",boxShadow:"0 24px 64px rgba(0,0,0,.7)"}}>
+
+        {/* Header */}
+        <div style={{padding:"18px 24px",borderBottom:"1px solid #1E3A5F",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div>
+            <div style={{fontWeight:"bold",color:"#FFCD00",fontSize:"17px"}}>🗂️ Post Queue — {localQueue.length} item{localQueue.length!==1?"s":""}</div>
+            <div style={{fontSize:"12px",color:"#6B8FAD",marginTop:"3px"}}>Review and edit each post, then confirm all at once.</div>
+          </div>
+          {!posting&&<button onClick={onClose} style={{background:"transparent",color:"#6B8FAD",border:"none",cursor:"pointer",fontSize:"22px",lineHeight:1}}>×</button>}
+        </div>
+
+        {/* Queue items */}
+        <div style={{flex:1,overflowY:"auto",padding:"16px 20px",display:"flex",flexDirection:"column",gap:"12px"}}>
+          {localQueue.length === 0 && (
+            <div style={{textAlign:"center",padding:"40px",color:"#4A6A8A",fontSize:"14px"}}>Queue is empty. Add posts using the "+ Queue" buttons.</div>
+          )}
+          {localQueue.map((item, i) => {
+            const pCfg = ALL_PLATFORMS.find(p=>p.key===item.platformKey);
+            const event = events.find(e=>e.id===item.eventId);
+            const key = `${item.eventId}-${item.platformKey}`;
+            const status = results[key];
+            const charOver = item.platformKey==="twitter" && item.text.length > 280;
+            return (
+              <div key={key} style={{background:`rgba(0,0,0,.3)`,border:`1px solid ${status==="done"?"#4ADE80":status==="error"?"#F87171":pCfg?.color+"33"}`,borderRadius:"12px",overflow:"hidden"}}>
+                {/* Item header */}
+                <div style={{padding:"10px 16px",background:pCfg?.color+"18",display:"flex",alignItems:"center",gap:"10px",borderBottom:`1px solid ${pCfg?.color}22`}}>
+                  <div style={{width:"24px",height:"24px",borderRadius:"6px",background:pCfg?.color,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"11px",flexShrink:0}}>{pCfg?.icon}</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:"13px",fontWeight:"bold",color:pCfg?.color}}>{pCfg?.label}</div>
+                    <div style={{fontSize:"11px",color:"#6B8FAD",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.eventTitle} · {fmtDate(item.eventDate)}</div>
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
+                    <span style={{fontSize:"11px",color:charOver?"#F87171":item.text.length>pCfg?.charLimit*0.9?"#FFCD00":"#4A6A8A"}}>{item.text.length}</span>
+                    {status==="done"&&<span style={{fontSize:"13px",color:"#4ADE80"}}>✅ Posted</span>}
+                    {status==="error"&&<span style={{fontSize:"13px",color:"#F87171"}}>❌ Error</span>}
+                    {!status&&!posting&&<button onClick={()=>remove(item.eventId,item.platformKey)} style={{background:"transparent",color:"#4A6A8A",border:"none",cursor:"pointer",fontSize:"16px",lineHeight:1,padding:"2px"}}>×</button>}
+                  </div>
+                </div>
+                {/* Editable text */}
+                {!status&&(
+                  <textarea
+                    value={item.text}
+                    onChange={e=>updateText(item.eventId, item.platformKey, e.target.value)}
+                    disabled={posting}
+                    rows={4}
+                    style={{width:"100%",background:"transparent",border:"none",borderBottom:charOver?`1px solid #F8717133`:"none",color:"#C8D8E8",fontSize:"12px",lineHeight:"1.6",padding:"12px 16px",resize:"vertical",fontFamily:"Georgia,serif",boxSizing:"border-box",opacity:posting?.6:1}}
+                  />
+                )}
+                {charOver&&!status&&<div style={{padding:"4px 16px 8px",fontSize:"11px",color:"#F87171"}}>⚠️ Over X/Twitter 280 char limit by {item.text.length-280}</div>}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer */}
+        <div style={{padding:"16px 24px",borderTop:"1px solid #1E3A5F",display:"flex",gap:"10px",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{fontSize:"12px",color:"#4A6A8A"}}>
+            {started ? `${Object.values(results).filter(r=>r==="done").length}/${localQueue.length} posted` : `${localQueue.length} post${localQueue.length!==1?"s":""} ready to send`}
+          </div>
+          <div style={{display:"flex",gap:"10px"}}>
+            {!posting&&<button onClick={onClose} style={{background:"transparent",color:"#6B8FAD",border:"1px solid #1E3A5F",borderRadius:"8px",padding:"9px 20px",cursor:"pointer",fontSize:"13px"}}>{allDone?"Close":"Cancel"}</button>}
+            {!allDone&&(
+              <button onClick={postAll} disabled={posting||localQueue.length===0||localQueue.some(q=>q.platformKey==="twitter"&&q.text.length>280)}
+                style={{
+                  background:posting||localQueue.length===0?"#1E3A5F":"linear-gradient(135deg,#22C55E,#16A34A)",
+                  color:posting||localQueue.length===0?"#4A6A8A":"#fff",
+                  border:"none",borderRadius:"8px",padding:"9px 28px",
+                  cursor:posting||localQueue.length===0?"not-allowed":"pointer",
+                  fontSize:"13px",fontWeight:"bold",display:"flex",alignItems:"center",gap:"8px",
+                }}>
+                {posting ? <><span style={{animation:"pulse 1s infinite"}}>⏳</span> Posting…</> : `🚀 Post All ${localQueue.length > 0 ? `(${localQueue.length})` : ""}`}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ── Platform preview components ───────────────────────────────────────────────
+function LinkedInPreview({text}) {
+  return (
+    <div style={{background:"#fff",borderRadius:"8px",fontFamily:"'-apple-system',sans-serif",overflow:"hidden",border:"1px solid #e0e0e0"}}>
+      <div style={{padding:"12px 16px",display:"flex",gap:"10px",alignItems:"center"}}>
+        <div style={{width:"48px",height:"48px",borderRadius:"50%",background:"linear-gradient(135deg,#FFCD00,#00205B)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:"bold",fontSize:"16px"}}>A</div>
+        <div>
+          <div style={{fontWeight:"600",color:"#000",fontSize:"14px"}}>AACC Texas</div>
+          <div style={{color:"#666",fontSize:"12px"}}>Australian American Chamber of Commerce</div>
+          <div style={{color:"#666",fontSize:"11px"}}>Now • 🌐</div>
+        </div>
+      </div>
+      <div style={{padding:"0 16px 12px",fontSize:"14px",color:"#000",lineHeight:"1.6",whiteSpace:"pre-wrap"}}>{text}</div>
+      <div style={{borderTop:"1px solid #e0e0e0",padding:"8px 16px",display:"flex",gap:"16px"}}>
+        {["👍 Like","💬 Comment","🔄 Repost","📤 Send"].map(a=><span key={a} style={{color:"#666",fontSize:"13px",fontWeight:"600",cursor:"pointer"}}>{a}</span>)}
+      </div>
+    </div>
+  );
+}
+
+function TwitterPreview({text}) {
+  const chars = text.length;
+  const pct = Math.min(chars/280,1);
+  const circleColor = chars>280?"#F4212E":chars>252?"#FFD400":"#1D9BF0";
+  return (
+    <div style={{background:"#fff",borderRadius:"12px",fontFamily:"'-apple-system',sans-serif",padding:"16px",border:"1px solid #eff3f4"}}>
+      <div style={{display:"flex",gap:"12px"}}>
+        <div style={{width:"40px",height:"40px",borderRadius:"50%",background:"linear-gradient(135deg,#FFCD00,#00205B)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:"bold"}}>A</div>
+        <div style={{flex:1}}>
+          <div style={{display:"flex",gap:"6px",alignItems:"baseline",marginBottom:"4px"}}>
+            <span style={{fontWeight:"700",color:"#0F1419",fontSize:"15px"}}>AACC Texas</span>
+            <span style={{color:"#536471",fontSize:"15px"}}>@AACCTexas · now</span>
+          </div>
+          <div style={{fontSize:"15px",color:"#0F1419",lineHeight:"1.6",whiteSpace:"pre-wrap"}}>{text}</div>
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:"12px",color:"#536471"}}>
+            <div style={{display:"flex",gap:"20px"}}>
+              {["💬","🔁","❤️","📊","⬆️"].map(i=><span key={i} style={{cursor:"pointer",fontSize:"18px"}}>{i}</span>)}
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
+              <svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="none" stroke="#e0e0e0" strokeWidth="2"/><circle cx="10" cy="10" r="9" fill="none" stroke={circleColor} strokeWidth="2" strokeDasharray={`${pct*56.5} 56.5`} transform="rotate(-90 10 10)"/></svg>
+              <span style={{fontSize:"13px",color:circleColor}}>{280-chars}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FacebookPreview({text}) {
+  return (
+    <div style={{background:"#fff",borderRadius:"8px",fontFamily:"Helvetica,Arial,sans-serif",overflow:"hidden",border:"1px solid #ddd"}}>
+      <div style={{padding:"12px 16px",display:"flex",gap:"10px",alignItems:"center"}}>
+        <div style={{width:"40px",height:"40px",borderRadius:"50%",background:"linear-gradient(135deg,#FFCD00,#00205B)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:"bold"}}>A</div>
+        <div>
+          <div style={{fontWeight:"600",color:"#050505",fontSize:"14px"}}>AACC Texas</div>
+          <div style={{color:"#65676B",fontSize:"12px",display:"flex",alignItems:"center",gap:"4px"}}>Just now · <span>🌐</span></div>
+        </div>
+        <div style={{marginLeft:"auto",color:"#65676B",fontSize:"20px",cursor:"pointer"}}>···</div>
+      </div>
+      <div style={{padding:"0 16px 12px",fontSize:"14px",color:"#050505",lineHeight:"1.6",whiteSpace:"pre-wrap"}}>{text}</div>
+      <div style={{borderTop:"1px solid #e4e6eb",padding:"4px 16px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0"}}>
+          {["👍 Like","💬 Comment","↗️ Share"].map(a=>(
+            <button key={a} style={{flex:1,background:"transparent",border:"none",color:"#65676B",fontWeight:"600",fontSize:"14px",padding:"8px",cursor:"pointer",borderRadius:"4px"}}>{a}</button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InstagramPreview({text}) {
+  return (
+    <div style={{background:"#fff",borderRadius:"8px",fontFamily:"-apple-system,sans-serif",overflow:"hidden",border:"1px solid #dbdbdb",maxWidth:"400px",margin:"0 auto"}}>
+      <div style={{padding:"10px 12px",display:"flex",alignItems:"center",gap:"10px",borderBottom:"1px solid #dbdbdb"}}>
+        <div style={{width:"32px",height:"32px",borderRadius:"50%",background:"linear-gradient(135deg,#833AB4,#FD1D1D,#F77737)",padding:"2px",display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div style={{width:"100%",height:"100%",borderRadius:"50%",background:"linear-gradient(135deg,#FFCD00,#00205B)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:"bold",fontSize:"12px"}}>A</div>
+        </div>
+        <span style={{fontWeight:"600",color:"#262626",fontSize:"14px"}}>aacctexas</span>
+        <span style={{marginLeft:"auto",color:"#262626",fontSize:"14px",fontWeight:"600",color:"#0095F6",cursor:"pointer"}}>Follow</span>
+      </div>
+      <div style={{background:"linear-gradient(135deg,#00205B,#FFCD00)",height:"200px",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:"32px"}}>🦘🇦🇺🤠</div>
+      <div style={{padding:"12px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:"8px"}}>
+          <div style={{display:"flex",gap:"14px",fontSize:"24px"}}>❤️ 💬 ✈️</div>
+          <div style={{fontSize:"24px"}}>🔖</div>
+        </div>
+        <div style={{fontSize:"14px",color:"#262626",lineHeight:"1.5"}}>
+          <span style={{fontWeight:"600"}}>aacctexas </span>
+          <span style={{whiteSpace:"pre-wrap"}}>{text.substring(0,150)}{text.length>150?"… more":""}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Empty state ───────────────────────────────────────────────────────────────
+function EmptyState({icon,msg,sub}) {
+  return (
+    <div style={{textAlign:"center",padding:"60px 20px",border:"1px dashed #1E3A5F",borderRadius:"14px"}}>
+      <div style={{fontSize:"48px",marginBottom:"12px"}}>{icon}</div>
+      <div style={{fontSize:"17px",color:"#93B4D4",marginBottom:"6px"}}>{msg}</div>
+      <div style={{fontSize:"13px",color:"#4A6A8A"}}>{sub}</div>
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// EVENT CARD
+// ═════════════════════════════════════════════════════════════════════════════
+function EventCard({event,post,editedPost,isPast,isExpanded,isGenerating,onGenerate,onToggle,onDelete,onUpdateText,onSaveEdits,onOpenModal,activePlatforms,onAddToQueue,onIsQueued}) {
+  const color=TYPE_COLOR[event.type]||TYPE_COLOR.Other;
+  const hasEdits = post && editedPost && (activePlatforms||ALL_PLATFORMS).some(p=> editedPost[p.key] && editedPost[p.key]!==post[p.key]);
+  return (
+    <div style={{background:isPast?"rgba(0,0,0,.15)":"rgba(0,20,60,.5)",border:`1px solid ${isPast?"#162840":"#1E3A5F"}`,borderLeft:`4px solid ${isPast?"#2A4A6A":color}`,borderRadius:"12px",marginBottom:"10px",opacity:isPast?.72:1}}>
+      <div style={{padding:"16px 20px",display:"flex",alignItems:"flex-start",gap:"12px",flexWrap:"wrap"}}>
+        {/* Date badge */}
+        <div style={{flexShrink:0,background:"rgba(0,48,143,.4)",border:"1px solid #1E3A5F",borderRadius:"8px",padding:"8px 12px",textAlign:"center",minWidth:"52px"}}>
+          <div style={{fontSize:"10px",color:"#FFCD00",textTransform:"uppercase",letterSpacing:"1px"}}>{event.date?localDate(event.date).toLocaleDateString("en-US",{month:"short"}):"—"}</div>
+          <div style={{fontSize:"22px",fontWeight:"bold",color:"#E2D9C5",lineHeight:1}}>{event.date?localDate(event.date).getDate():"—"}</div>
+        </div>
+        {/* Info */}
+        <div style={{flex:1,minWidth:"180px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:"6px",flexWrap:"wrap",marginBottom:"5px"}}>
+            <span style={{background:color+"22",color:color,fontSize:"10px",padding:"2px 8px",borderRadius:"4px",fontWeight:"bold",letterSpacing:"1px",textTransform:"uppercase"}}>{event.type}</span>
+            {isPast&&<span style={{background:"#14532D22",color:"#4ADE80",fontSize:"10px",padding:"2px 8px",borderRadius:"4px"}}>✅ Past</span>}
+            {post&&<span style={{background:"#FFCD0022",color:"#FFCD00",fontSize:"10px",padding:"2px 8px",borderRadius:"4px"}}>✍️ Posts ready</span>}
+            {hasEdits&&<span style={{background:"#F9731622",color:"#F97316",fontSize:"10px",padding:"2px 8px",borderRadius:"4px"}}>● Unsaved edits</span>}
+            {event.registration==="Closed"&&<span style={{background:"#7F1D1D22",color:"#F87171",fontSize:"10px",padding:"2px 8px",borderRadius:"4px"}}>🔒 Reg. Closed</span>}
+            {event.registration==="Open"&&<span style={{background:"#14532D22",color:"#4ADE80",fontSize:"10px",padding:"2px 8px",borderRadius:"4px"}}>✅ Reg. Open</span>}
+          </div>
+          <div style={{fontSize:"17px",fontWeight:"bold",color:"#E2D9C5",lineHeight:"1.3"}}>{event.title}</div>
+          <div style={{fontSize:"12px",color:"#6B8FAD",marginTop:"4px",lineHeight:"1.5"}}>
+            {event.starts&&<span>⏰ {event.starts}</span>}
+            {event.venue&&<span> · 📍 {event.venue}</span>}
+            {event.address&&<div style={{marginTop:"2px",fontSize:"11px"}}>📮 {event.address}</div>}
+          </div>
+          {event.description&&<div style={{fontSize:"12px",color:"#93B4D4",marginTop:"6px",lineHeight:"1.5",maxHeight:"3.5em",overflow:"hidden"}}>{event.description.substring(0,200)}{event.description.length>200?"…":""}</div>}
+          {event.url&&<a href={event.url} target="_blank" rel="noopener noreferrer" style={{fontSize:"11px",color:"#3B82F6",marginTop:"4px",display:"inline-block"}}>🔗 View on AACC Texas →</a>}
+        </div>
+        {/* Event image thumbnail */}
+        <div style={{flexShrink:0,width:"90px",height:"68px",borderRadius:"8px",overflow:"hidden",border:"1px solid #1E3A5F"}}>
+            <img src={event.imageUrl} alt={event.title} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+          </div>
+        {/* Actions */}
+        <div style={{display:"flex",flexDirection:"column",gap:"6px",flexShrink:0}}>
+          {!isPast&&<button onClick={onGenerate} disabled={isGenerating} style={{background:isGenerating?"#1E3A5F":post?"rgba(255,205,0,.1)":"linear-gradient(135deg,#00308F,#001A5F)",color:isGenerating?"#4A6A8A":post?"#FFCD00":"#93B4D4",border:`1px solid ${post?"#FFCD0033":"#1E3A5F"}`,borderRadius:"7px",padding:"7px 13px",cursor:isGenerating?"not-allowed":"pointer",fontSize:"12px",fontWeight:"bold",whiteSpace:"nowrap"}}>
+            {isGenerating?<span style={{animation:"pulse 1s infinite"}}>⏳ Generating…</span>:post?"✍️ Regenerate":"✍️ Generate Posts"}
+          </button>}
+          {post&&<button onClick={onToggle} style={{background:"transparent",color:"#FFCD00",border:"1px solid #FFCD0033",borderRadius:"7px",padding:"7px 13px",cursor:"pointer",fontSize:"12px"}}>{isExpanded?"▲ Collapse":"▼ Edit & Post"}</button>}
+          <button onClick={onDelete} style={{background:"transparent",color:"#7F1D1D",border:"1px solid #3A1A1A",borderRadius:"7px",padding:"7px 10px",cursor:"pointer",fontSize:"12px"}}>🗑️</button>
+        </div>
+      </div>
+
+      {/* Expanded editor */}
+      {isExpanded&&post&&(
+        <div style={{borderTop:"1px solid #1E3A5F",padding:"16px 20px"}}>
+          {/* Full event image */}
+          <img src={event.imageUrl} alt={event.title} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
+          <PostEditor post={post} editedPost={editedPost} eventId={event.id} event={event} onUpdateText={onUpdateText} onSaveEdits={onSaveEdits} onOpenModal={onOpenModal} onAddToQueue={onAddToQueue} onIsQueued={onIsQueued}/>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// POST CARD (Posts tab)
+// ═════════════════════════════════════════════════════════════════════════════
+function PostCard({event,post,editedPost,onUpdateText,onSaveEdits,onOpenModal,activePlatforms,onAddToQueue,onIsQueued}) {
+  return (
+    <div style={{background:"rgba(0,20,60,.5)",border:"1px solid #1E3A5F",borderRadius:"12px",marginBottom:"16px",overflow:"hidden"}}>
+      <div style={{background:"rgba(0,48,143,.3)",padding:"12px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"8px"}}>
+        <div>
+          <div style={{fontWeight:"bold",color:"#FFCD00",fontSize:"15px"}}>{event.title}</div>
+          <div style={{fontSize:"12px",color:"#6B8FAD"}}>📅 {fmtDate(event.date)}</div>
+        </div>
+        <div style={{fontSize:"11px",color:"#4A6A8A"}}>Generated {new Date(post.generatedAt).toLocaleDateString()}</div>
+      </div>
+      <div style={{padding:"16px 20px"}}>
+        <img src={event.imageUrl} alt={event.title} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
+        <PostEditor post={post} editedPost={editedPost} eventId={event.id} event={event} onUpdateText={onUpdateText} onSaveEdits={onSaveEdits} onOpenModal={onOpenModal} onAddToQueue={onAddToQueue} onIsQueued={onIsQueued}/>
+      </div>
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// POST EDITOR — editable textareas + Post buttons per platform
+// ═════════════════════════════════════════════════════════════════════════════
+function PostEditor({post, editedPost, eventId, event, onUpdateText, onSaveEdits, onOpenModal, onAddToQueue, onIsQueued}) {
+  const [dirty, setDirty] = useState(false);
+
+  const handleChange = (pKey, val) => {
+    onUpdateText(pKey, val);
+    setDirty(true);
+  };
+
+  const handleSave = () => {
+    onSaveEdits();
+    setDirty(false);
+  };
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
+      {(activePlatforms||ALL_PLATFORMS).map(p=>{
+        const savedText = post[p.key] || "";
+        const currentText = (editedPost && editedPost[p.key] !== undefined) ? editedPost[p.key] : savedText;
+        const isEdited = currentText !== savedText;
+        const overLimit = p.charLimit && currentText.length > p.charLimit;
+        return (
+          <div key={p.key} style={{background:"rgba(0,0,0,.25)",borderRadius:"10px",border:`1px solid ${p.color}22`,overflow:"hidden"}}>
+            {/* Platform header */}
+            <div style={{background:p.color+"18",padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:`1px solid ${p.color}22`}}>
+              <span style={{fontWeight:"bold",fontSize:"13px",color:p.color}}>{p.icon} {p.label}</span>
+              <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
+                {p.charLimit&&<span style={{fontSize:"11px",color:overLimit?"#F87171":currentText.length>p.charLimit*.9?"#FFCD00":"#4ADE80"}}>{currentText.length}{p.charLimit?`/${p.charLimit}`:""}</span>}
+                {isEdited&&<span style={{fontSize:"10px",color:"#F97316",background:"#F9731622",padding:"1px 6px",borderRadius:"4px"}}>edited</span>}
+                {/* QUEUE + POST NOW BUTTONS */}
+                <button
+                  onClick={()=>onAddToQueue && onAddToQueue(p.key)}
+                  title={onIsQueued && onIsQueued(p.key) ? "Already in queue — click to update" : "Add to batch queue"}
+                  style={{
+                    background: onIsQueued && onIsQueued(p.key) ? "#14532D" : "rgba(0,0,0,.3)",
+                    color: onIsQueued && onIsQueued(p.key) ? "#4ADE80" : "#93B4D4",
+                    border:`1px solid ${onIsQueued && onIsQueued(p.key) ? "#4ADE80" : "#2A4A7F"}`,
+                    borderRadius:"6px", padding:"5px 10px", cursor:"pointer",
+                    fontSize:"12px", fontWeight:"bold", display:"flex", alignItems:"center", gap:"4px",
+                  }}
+                >
+                  {onIsQueued && onIsQueued(p.key) ? "✓ Queued" : "+ Queue"}
+                </button>
+                <button
+                  onClick={()=>onOpenModal(p.key)}
+                  style={{
+                    background:`linear-gradient(135deg,${p.color},${p.color}CC)`,
+                    color:"#fff",border:"none",borderRadius:"6px",
+                    padding:"5px 12px",cursor:"pointer",
+                    fontSize:"12px",fontWeight:"bold",
+                    boxShadow:`0 2px 8px ${p.color}44`,
+                    display:"flex",alignItems:"center",gap:"4px",
+                  }}
+                >
+                  {p.icon} Post Now
+                </button>
+              </div>
+            </div>
+            {/* Editable textarea */}
+            <textarea
+              value={currentText}
+              onChange={e=>handleChange(p.key, e.target.value)}
+              style={{
+                width:"100%",boxSizing:"border-box",
+                minHeight:p.key==="twitter"?"80px":"120px",
+                background:"transparent",border:"none",
+                color:"#C8D8E8",fontSize:"13px",lineHeight:"1.7",
+                padding:"12px 14px",resize:"vertical",
+                fontFamily:"Georgia,'Times New Roman',serif",
+              }}
+            />
+            {overLimit&&<div style={{padding:"4px 14px 8px",fontSize:"11px",color:"#F87171"}}>⚠️ Over {p.label} character limit by {currentText.length-p.charLimit} chars</div>}
+          </div>
+        );
+      })}
+      {/* Save edits button */}
+      {dirty&&(
+        <div style={{display:"flex",justifyContent:"flex-end"}}>
+          <button onClick={handleSave} style={{background:"linear-gradient(135deg,#22C55E,#16A34A)",color:"#fff",border:"none",borderRadius:"8px",padding:"8px 20px",cursor:"pointer",fontSize:"13px",fontWeight:"bold"}}>
+            💾 Save Edits
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// EXPORT MODAL
+// ═════════════════════════════════════════════════════════════════════════════
+function ExportModal({events, posts, editedPosts, onClose, toast}) {
+  const eventsWithPosts = events.filter(e => posts[e.id]);
+  const [selected, setSelected] = useState(new Set(eventsWithPosts.map(e=>e.id)));
+  const [fmt, setFmt] = useState("md");
+
+  const toggle = (id) => {
+    setSelected(prev => {
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  };
+  const toggleAll = () => {
+    if (selected.size === eventsWithPosts.length) setSelected(new Set());
+    else setSelected(new Set(eventsWithPosts.map(e=>e.id)));
+  };
+
+  const doExport = () => {
+    const toExport = eventsWithPosts.filter(e=>selected.has(e.id));
+    if (!toExport.length) { toast("No events selected","err"); return; }
+    try {
+      if (fmt==="md")  exportMarkdown(toExport, posts, editedPosts);
+      if (fmt==="csv") exportCSV(toExport, posts, editedPosts);
+      if (fmt==="txt") exportTxt(toExport, posts, editedPosts);
+      toast(`✅ ${toExport.length} event(s) exported as .${fmt}`);
+      onClose();
+    } catch(e) { toast("Export error: "+e.message,"err"); }
+  };
+
+  const FMT_INFO = {
+    md:  {icon:"📝", label:"Markdown (.md)",  desc:"Best for Notion, Obsidian, or GitHub. Readable with headings & formatting."},
+    csv: {icon:"📊", label:"Spreadsheet (.csv)", desc:"Opens in Excel or Google Sheets. One row per platform per event."},
+    txt: {icon:"📄", label:"Plain Text (.txt)", desc:"Universal. Works in any text editor. Clean section breaks."},
+  };
+
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:1500,background:"rgba(0,0,0,.75)",display:"flex",alignItems:"center",justifyContent:"center",padding:"16px"}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div style={{background:"#0F1A30",border:"1px solid #1E3A5F",borderRadius:"16px",width:"100%",maxWidth:"520px",maxHeight:"90vh",overflow:"hidden",display:"flex",flexDirection:"column",animation:"modalIn .25s ease",boxShadow:"0 24px 64px rgba(0,0,0,.7)"}}>
+        {/* Header */}
+        <div style={{padding:"16px 20px",borderBottom:"1px solid #1E3A5F",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div>
+            <div style={{fontWeight:"bold",color:"#FFCD00",fontSize:"16px"}}>⬇️ Export Posts</div>
+            <div style={{fontSize:"12px",color:"#6B8FAD",marginTop:"2px"}}>Download to your computer — save anywhere you like</div>
+          </div>
+          <button onClick={onClose} style={{background:"transparent",color:"#6B8FAD",border:"none",cursor:"pointer",fontSize:"20px",lineHeight:1,padding:"4px"}}>×</button>
+        </div>
+
+        <div style={{flex:1,overflowY:"auto",padding:"20px",display:"flex",flexDirection:"column",gap:"20px"}}>
+          {/* Format picker */}
+          <div>
+            <div style={{fontSize:"12px",color:"#6B8FAD",textTransform:"uppercase",letterSpacing:"1px",marginBottom:"10px"}}>Format</div>
+            <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
+              {Object.entries(FMT_INFO).map(([key,info])=>(
+                <label key={key} onClick={()=>setFmt(key)} style={{display:"flex",alignItems:"flex-start",gap:"12px",padding:"12px 14px",background:fmt===key?"rgba(0,48,143,.4)":"rgba(0,0,0,.2)",border:`1px solid ${fmt===key?"#3B82F6":"#1E3A5F"}`,borderRadius:"10px",cursor:"pointer",transition:"all .15s"}}>
+                  <div style={{width:"18px",height:"18px",borderRadius:"50%",border:`2px solid ${fmt===key?"#3B82F6":"#2A4A7F"}`,background:fmt===key?"#3B82F6":"transparent",flexShrink:0,marginTop:"1px",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    {fmt===key&&<div style={{width:"7px",height:"7px",borderRadius:"50%",background:"#fff"}}/>}
+                  </div>
+                  <div>
+                    <div style={{fontSize:"14px",color:"#E2D9C5",fontWeight:fmt===key?"bold":"normal"}}>{info.icon} {info.label}</div>
+                    <div style={{fontSize:"12px",color:"#6B8FAD",marginTop:"3px"}}>{info.desc}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Event selector */}
+          <div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"10px"}}>
+              <div style={{fontSize:"12px",color:"#6B8FAD",textTransform:"uppercase",letterSpacing:"1px"}}>Events ({selected.size}/{eventsWithPosts.length} selected)</div>
+              <button onClick={toggleAll} style={{background:"transparent",color:"#3B82F6",border:"none",cursor:"pointer",fontSize:"12px",textDecoration:"underline"}}>
+                {selected.size===eventsWithPosts.length?"Deselect all":"Select all"}
+              </button>
+            </div>
+            {eventsWithPosts.length===0 ? (
+              <div style={{color:"#4A6A8A",fontSize:"13px",fontStyle:"italic"}}>No posts generated yet.</div>
+            ) : (
+              <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>
+                {eventsWithPosts.map(ev=>(
+                  <label key={ev.id} onClick={()=>toggle(ev.id)} style={{display:"flex",alignItems:"center",gap:"10px",padding:"10px 14px",background:selected.has(ev.id)?"rgba(0,48,143,.25)":"rgba(0,0,0,.2)",border:`1px solid ${selected.has(ev.id)?"#1E3A5F22":"#1E3A5F"}`,borderRadius:"8px",cursor:"pointer"}}>
+                    <div style={{width:"16px",height:"16px",borderRadius:"3px",border:`2px solid ${selected.has(ev.id)?"#3B82F6":"#2A4A7F"}`,background:selected.has(ev.id)?"#3B82F6":"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      {selected.has(ev.id)&&<span style={{color:"#fff",fontSize:"10px",lineHeight:1}}>✓</span>}
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:"13px",color:"#E2D9C5",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.title}</div>
+                      <div style={{fontSize:"11px",color:"#6B8FAD"}}>{fmtDate(ev.date)}</div>
+                    </div>
+                    <div style={{fontSize:"11px",color:"#4ADE80",flexShrink:0}}>
+                      {(activePlatforms||ALL_PLATFORMS).filter(p=>posts[ev.id]?.[p.key]).length} platforms
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Tip */}
+          <div style={{background:"rgba(255,205,0,.07)",border:"1px solid #FFCD0022",borderRadius:"8px",padding:"12px 14px",fontSize:"12px",color:"#A89060",lineHeight:"1.6"}}>
+            💡 <strong style={{color:"#FFCD00"}}>Tip:</strong> Set Chrome's default download folder to save straight to a specific desktop folder — Chrome → Settings → Downloads → Change location.
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{padding:"16px 20px",borderTop:"1px solid #1E3A5F",display:"flex",gap:"10px",justifyContent:"flex-end"}}>
+          <button onClick={onClose} style={{background:"transparent",color:"#6B8FAD",border:"1px solid #1E3A5F",borderRadius:"8px",padding:"9px 20px",cursor:"pointer",fontSize:"13px"}}>Cancel</button>
+          <button onClick={doExport} disabled={selected.size===0} style={{background:selected.size===0?"#1E3A5F":"linear-gradient(135deg,#FFCD00,#E6B800)",color:selected.size===0?"#4A6A8A":"#001A4D",border:"none",borderRadius:"8px",padding:"9px 22px",cursor:selected.size===0?"not-allowed":"pointer",fontSize:"13px",fontWeight:"bold"}}>
+            {exporting ? <span style={{animation:"pulse 1s infinite"}}>⏳ Fetching images…</span> : `⬇️ Download ${selected.size > 0 ? `(${selected.size} event${selected.size>1?"s":""})` : ""}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── KNOWN EVENTS ─────────────────────────────────────────────────────────────
+const KNOWN_EVENTS = [
+  {id:"hmas-perth-2026-3-7",title:"HMAS Perth-U.S.S Houston CA-30 Day of Remembrance",date:"2026-03-07",starts:"Sat Mar 7 2026, 1:30pm CST",ends:null,venue:"U.S.S. Houston Monument",address:"Sam Houston Park, 1100 Bagby Street, Houston TX 77002",description:"The AACC Texas and Houston-Perth Sister City Association honors the annual USS Houston CA-30 Day of Remembrance. The USS Houston and HMAS Perth were sunk on March 1, 1942 in the Battle of Sunda Strait. This ceremony marks the 30th gathering at the monument.",registration:"Closed",url:"https://www.aacc-texas.org/events.html#!event/2026/3/7/hmas-perth-u-s-s-houston-ca-30-day-of-remembrance",type:"Cultural",imageUrl:"https://d1tif55lvfk8gc.cloudfront.net/698a49e05d4ca60c2f061ba6.jpg"},
+  {id:"houston-sundowner-2026-3-12",title:"Houston Sundowner — Farewell Consul-General Gab Hall",date:"2026-03-12",starts:"Thu Mar 12 2026, 5:30pm CDT",ends:"Thu Mar 12 2026, 7:30pm CDT",venue:"Platypus Brewing",address:"1902 Washington Ave, Houston TX 77007",description:"Farewell to Consul-General Gab Hall and her family. Come raise a glass and wish them well on their next chapter!",registration:"Open",url:"https://www.aacc-texas.org/events.html#!event/2026/3/12/houston-sundowner",type:"Sundowner",imageUrl:"https://d1tif55lvfk8gc.cloudfront.net/69432d3ab92443df10097683.jpg"},
+  {id:"austin-coffee-2026-3-20",title:"Austin Coffee with New Friends",date:"2026-03-20",starts:"Fri Mar 20 2026, 10:30am CDT",ends:"Fri Mar 20 2026, 12:00pm CDT",venue:"Two Hands",address:"1011 S Congress Ave Suite 170, Austin TX 78704",description:"Monthly Aussie coffee catch-up in Austin. Casual, easy, with a mix of old and new faces. Hosted by America Josh in partnership with AACC Texas.",registration:"Open",url:"https://www.aacc-texas.org/events.html#!event/2026/3/20/austin-coffee-with-new-friends",type:"Networking",imageUrl:"https://americajosh.com/wp-content/uploads/2025/12/Austin-Two-Hands-2.png"},
+  {id:"houston-sundowner-2026-4-9",title:"Houston Sundowner",date:"2026-04-09",starts:"Thu Apr 9 2026, 5:30pm CDT",ends:"Thu Apr 9 2026, 7:30pm CDT",venue:"Platypus Brewing",address:"1902 Washington Ave, Houston TX 77007",description:"Monthly Houston Sundowner — connect with Australians and Texans over drinks and nibbles.",registration:"Unknown",url:"https://www.aacc-texas.org/events.html#!event/2026/4/9/houston-sundowner",type:"Sundowner",imageUrl:"https://d1tif55lvfk8gc.cloudfront.net/69432db4b2135d3eb30bd1d8.jpg"},
+  {id:"anzac-day-2026-4-25",title:"ANZAC Day",date:"2026-04-25",starts:"Sat Apr 25 2026, 11:00am CDT",ends:null,venue:null,address:null,description:"ANZAC Day commemoration hosted by AACC Texas. Lest We Forget.",registration:"Unknown",url:"https://www.aacc-texas.org/events.html#!event/2026/4/25/anzac-day",type:"Cultural",imageUrl:null},
+  {id:"multinational-monday-2026-5-4",title:"Multinational Monday (9th Annual)",date:"2026-05-04",starts:"Mon May 4 2026, 6:00pm CDT",ends:null,venue:"Decorum",address:"2211 Travis St, Houston TX 77002",description:"9th Annual Multinational Monday during OTC. Premier evening for global partnerships. Sponsored by NES Fircroft.",registration:"Open",url:"https://www.aacc-texas.org/events.html#!event/2026/5/4/multinational-monday-1",type:"Networking",imageUrl:"https://d1tif55lvfk8gc.cloudfront.net/69728462339c0393a101b896.jpg"},
+  {id:"houston-sundowner-2026-5-14",title:"Houston Sundowner",date:"2026-05-14",starts:"Thu May 14 2026, 5:30pm CDT",ends:"Thu May 14 2026, 7:30pm CDT",venue:"Platypus Brewing",address:"1902 Washington Ave, Houston TX 77007",description:"Monthly Houston Sundowner — connect with Australians and Texans over drinks and nibbles.",registration:"Unknown",url:"https://www.aacc-texas.org/events.html#!event/2026/5/14/houston-sundowner",type:"Sundowner",imageUrl:"https://d1tif55lvfk8gc.cloudfront.net/69432e1c2be93885f20d03d8.jpg"},
+  {id:"australian-gala-2026-5-15",title:"2026 Australian Gala",date:"2026-05-15",starts:"Fri May 15 2026",ends:"Fri May 15 2026",venue:"The Revaire",address:"7122 Old Katy Road, Houston TX 77024",description:"An elegant evening celebrating the bond between Australia and Texas. Cocktail reception, dinner with Australian and Texan flavors, and wines from Australia's wine regions.",registration:"Unknown",url:"https://www.aacc-texas.org/events.html#!event/2026/5/15/2026-australian-gala",type:"Gala",imageUrl:"https://d1tif55lvfk8gc.cloudfront.net/691b4db1ad7446cd3e0ce594.jpg"},
+  {id:"houston-sundowner-2026-6-11",title:"Houston Sundowner",date:"2026-06-11",starts:"Thu Jun 11 2026, 5:30pm CDT",ends:"Thu Jun 11 2026, 7:30pm CDT",venue:"Platypus Brewing",address:"1902 Washington Ave, Houston TX 77007",description:"Monthly Houston Sundowner — connect with Australians and Texans over drinks and nibbles.",registration:"Unknown",url:"https://www.aacc-texas.org/events.html#!event/2026/6/11/houston-sundowner",type:"Sundowner",imageUrl:"https://d1tif55lvfk8gc.cloudfront.net/69432e630c78f9a26b02c395.jpg"},
+];
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+</script>
+</body>
+</html>
