@@ -632,7 +632,6 @@ function App() {
   const [scriptCopied,setScriptCopied]= useState(false);
   const [showSettings,setShowSettings]= useState(false);
   const [isDark, setIsDark] = useState(true);
-  const T = isDark ? DARK : LIGHT;
   const [settings,    setSettings]    = useState(DEFAULT_SETTINGS);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   // ── Batch queue: [{eventId, platformKey, text}]
@@ -832,7 +831,8 @@ function App() {
 
   // ── Settings page ──────────────────────────────────────────────────────────
   if (showSettings) {
-    return (
+    const T = isDark ? DARK : LIGHT;
+  return (
       <>
         <SettingsPage
           settings={settings}
@@ -847,7 +847,7 @@ function App() {
   }
 
   return (
-    <div style={{minHeight:"100vh",background:T.bg,fontFamily:"Georgia,'Times New Roman',serif",color:"#E2D9C5"}}>
+    <div style={{minHeight:"100vh",background:T.bg,fontFamily:"-apple-system,'Helvetica Neue',sans-serif",color:T.text}}>
       {/* Background glow */}
       <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0}}>
         <div style={{position:"absolute",width:"700px",height:"700px",borderRadius:"50%",background:"radial-gradient(circle,rgba(0,48,143,.12) 0%,transparent 70%)",top:"-200px",left:"-200px"}}/>
