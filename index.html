@@ -145,24 +145,28 @@ const CONSOLE_SCRIPT = `(async function(){function wait(ms){return new Promise(r
 // ═════════════════════════════════════════════════════════════════════════════
 
 function GS({T}) {
-  return <style>{`
-    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-    body{margin:0;background:${T.bg};transition:background .3s;}
-    ::selection{background:${T.accent}33;}
-    @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-    @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-    @keyframes modalIn{from{opacity:0;transform:scale(.96)translateY(8px)}to{opacity:1;transform:scale(1)translateY(0)}}
-    textarea:focus,input:focus{outline:2px solid ${T.borderFocus}!important;outline-offset:-1px;}
-    ::-webkit-scrollbar{width:4px;height:4px;}
-    ::-webkit-scrollbar-thumb{background:${T.border};border-radius:2px;}
-    .card-enter{animation:fadeUp .22s ease both;}
-    .modal-enter{animation:modalIn .22s ease both;}
-  `}</style>;
+  const css = [
+    "*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}",
+    "body{margin:0;background:"+T.bg+";transition:background .3s;}",
+    "::selection{background:"+T.accent+"33;}",
+    "@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}",
+    "@keyframes fadeIn{from{opacity:0}to{opacity:1}}",
+    "@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}",
+    "@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}",
+    "@keyframes modalIn{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}",
+    "@keyframes slideDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}",
+    "textarea:focus,input:focus{outline:2px solid "+T.borderFocus+" !important;outline-offset:-1px;}",
+    "textarea,input{font-family:-apple-system,'SF Pro Text','Helvetica Neue',sans-serif;}",
+    "::-webkit-scrollbar{width:4px;height:4px;}",
+    "::-webkit-scrollbar-track{background:transparent;}",
+    "::-webkit-scrollbar-thumb{background:"+T.border+";border-radius:2px;}",
+    ".sma-card{animation:fadeUp .2s ease both;}",
+  ].join("
+");
+  return React.createElement("style", null, css);
 }
 
-// Card
+
 function Card({children, style={}, onClick, padding="16px"}) {
   const T=useT();
   return <div onClick={onClick} style={{background:T.bgCard,borderRadius:"16px",border:`1px solid ${T.border}`,boxShadow:T.shadow,overflow:"hidden",padding,...style}}>{children}</div>;
