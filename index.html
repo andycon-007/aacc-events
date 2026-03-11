@@ -133,6 +133,24 @@
 const {useState,useEffect,useCallback,useRef}=React;
 
 // ── Storage keys ──────────────────────────────────────────────────────────────
+
+// ── Theme system ──────────────────────────────────────────────────────────────
+const LIGHT = {
+  bg:"#F2F2F7", bgCard:"#FFFFFF", bgCardAlt:"#F2F2F7",
+  bgHeader:"rgba(255,255,255,0.92)", border:"#E5E5EA",
+  text:"#1C1C1E", textSub:"#6E6E73", textMuted:"#AEAEB2",
+  accent:"#007AFF", danger:"#FF3B30", success:"#34C759", gold:"#FF9500",
+  shadow:"0 1px 3px rgba(0,0,0,.07),0 4px 12px rgba(0,0,0,.05)",
+};
+const DARK = {
+  bg:"#0A0A0F", bgCard:"#1C1C2E", bgCardAlt:"#16162A",
+  bgHeader:"rgba(10,10,20,0.92)", border:"#2A2A4A",
+  text:"#F0F0FF", textSub:"#A0A0C0", textMuted:"#606080",
+  accent:"#4A9EFF", danger:"#FF453A", success:"#30D158", gold:"#FF9F0A",
+  shadow:"0 1px 4px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.5)",
+};
+const SK_THEME = "sma-theme-v1";
+
 const SK_EVENTS = "aacc-events-v3";
 const SK_POSTS  = "aacc-posts-v3";
 const SK_SCAN   = "aacc-last-scan-v3";
@@ -431,7 +449,7 @@ function SettingsPage({settings, onSave, onClose, isFirstRun}) {
   ];
 
   return (
-    <div style={{minHeight:"100vh",background:"#080F1E",fontFamily:"Georgia,'Times New Roman',serif",color:"#E2D9C5",paddingBottom:"80px"}}>
+    <div style={{minHeight:"100vh",background:T.bg,fontFamily:"Georgia,'Times New Roman',serif",color:"#E2D9C5",paddingBottom:"80px"}}>
       {/* Header */}
       <div style={{background:"linear-gradient(135deg,#00205B,#001540)",borderBottom:"2px solid #FFCD00",padding:"18px 28px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:"12px"}}>
         <div style={{display:"flex",alignItems:"center",gap:"14px"}}>
@@ -615,11 +633,21 @@ function App() {
   const [pasteText,   setPasteText]   = useState("");
   const [scriptCopied,setScriptCopied]= useState(false);
   const [showSettings,setShowSettings]= useState(false);
+  const [isDark, setIsDark] = useState(true);
+  const T = isDark ? DARK : LIGHT;
   const [settings,    setSettings]    = useState(DEFAULT_SETTINGS);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   // ── Batch queue: [{eventId, platformKey, text}]
   const [queue,       setQueue]       = useState([]);
   const [showBatch,   setShowBatch]   = useState(false);
+
+  // ── Theme ──────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const saved = localStorage.getItem(SK_THEME);
+    if (saved !== null) setIsDark(saved === "dark");
+    else setIsDark(window.matchMedia && window.matchMedia("(prefers-color-scheme:dark)").matches !== false);
+  }, []);
+  const toggleTheme = () => { const n = !isDark; setIsDark(n); localStorage.setItem(SK_THEME, n ? "dark" : "light"); };
 
   // ── Load all persisted data ─────────────────────────────────────────────────
   useEffect(()=>{
@@ -820,7 +848,7 @@ function App() {
   }
 
   return (
-    <div style={{minHeight:"100vh",background:"#080F1E",fontFamily:"Georgia,'Times New Roman',serif",color:"#E2D9C5"}}>
+    <div style={{minHeight:"100vh",background:T.bg,fontFamily:"Georgia,'Times New Roman',serif",color:"#E2D9C5"}}>
       {/* Background glow */}
       <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0}}>
         <div style={{position:"absolute",width:"700px",height:"700px",borderRadius:"50%",background:"radial-gradient(circle,rgba(0,48,143,.12) 0%,transparent 70%)",top:"-200px",left:"-200px"}}/>
@@ -914,7 +942,8 @@ function App() {
           {showPaste&&(
             <div style={{marginTop:"16px",borderTop:"1px solid #1E3A5F",paddingTop:"16px"}}>
               <textarea value={pasteText} onChange={e=>setPasteText(e.target.value)} placeholder="Paste JSON array here..." style={{width:"100%",minHeight:"80px",background:"rgba(0,0,0,.4)",border:"1px solid #2A4A7F",borderRadius:"8px",color:"#E2D9C5",padding:"10px",fontSize:"11px",fontFamily:"monospace",resize:"vertical",boxSizing:"border-box"}}/>
-              <div style={{display:"flex",gap:"8px",marginTop:"8px"}}>
+              <button onClick={toggleTheme} style={{background:"none",border:"none",cursor:"pointer",fontSize:"18px",padding:"4px 8px"}}>{isDark ? "☀️" : "🌙"}</button>
+            <div style={{display:"flex",gap:"8px",marginTop:"8px"}}>
                 <button onClick={processPaste} disabled={!pasteText.trim()} style={{background:"linear-gradient(135deg,#FFCD00,#E6B800)",color:"#001A4D",border:"none",borderRadius:"8px",padding:"9px 16px",cursor:"pointer",fontSize:"12px",fontWeight:"bold"}}>✅ Load Events</button>
                 <button onClick={()=>{setPasteText("");setShowPaste(false);}} style={{background:"transparent",color:"#6B8FAD",border:"1px solid #1E3A5F",borderRadius:"8px",padding:"9px 14px",cursor:"pointer",fontSize:"12px"}}>Cancel</button>
               </div>
@@ -1423,7 +1452,8 @@ function PostEditor({post, editedPost, eventId, event, onUpdateText, onSaveEdits
             {/* Platform header */}
             <div style={{background:p.color+"18",padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:`1px solid ${p.color}22`}}>
               <span style={{fontWeight:"bold",fontSize:"13px",color:p.color}}>{p.icon} {p.label}</span>
-              <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
+              <button onClick={toggleTheme} style={{background:"none",border:"none",cursor:"pointer",fontSize:"18px",padding:"4px 8px"}}>{isDark ? "☀️" : "🌙"}</button>
+            <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
                 {p.charLimit&&<span style={{fontSize:"11px",color:overLimit?"#F87171":currentText.length>p.charLimit*.9?"#FFCD00":"#4ADE80"}}>{currentText.length}{p.charLimit?`/${p.charLimit}`:""}</span>}
                 {isEdited&&<span style={{fontSize:"10px",color:"#F97316",background:"#F9731622",padding:"1px 6px",borderRadius:"4px"}}>edited</span>}
                 {/* QUEUE + POST NOW BUTTONS */}
