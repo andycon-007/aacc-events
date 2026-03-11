@@ -6,9 +6,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <title>Social Media Assistant</title>
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
 </head>
 <body style="margin:0;padding:0">
 <div id="root"></div>
@@ -20,7 +20,7 @@
     list:(prefix)=>{try{const keys=Object.keys(localStorage).filter(k=>!prefix||k.startsWith(prefix));return Promise.resolve({keys});}catch(e){return Promise.resolve({keys:[]});}}
   };
 </script>
-<script type="text/babel">
+<script type="text/babel" data-presets="react">
 const {useState,useEffect,useCallback,useRef,createContext,useContext}=React;
 // ── Storage keys ──────────────────────────────────────────────────────────────
 const SK_EVENTS   = "aacc-events-v3";
@@ -103,25 +103,25 @@ const TYPE_COLOR = {
 
 const ALL_PLATFORMS = [
   {key:"linkedin", label:"LinkedIn",    color:"#0A66C2", charLimit:3000,
-   postAction:(text,s)=>{ navigator.clipboard.writeText(text); window.open(s?.linkedinUrl||"https://www.linkedin.com/feed/?shareActive=true","_blank"); return {note:"Text copied — paste into LinkedIn."}; }},
+   postAction:(text,s)=>{ navigator.clipboard.writeText(text); window.open(s&&s.linkedinUrl||"https://www.linkedin.com/feed/?shareActive=true","_blank"); return {note:"Text copied — paste into LinkedIn."}; }},
   {key:"twitter",  label:"X / Twitter", color:"#000000", charLimit:280,
    postAction:(text)=>{ window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text.substring(0,280))}`,"_blank"); return {note:"X opened with post pre-filled."}; }},
   {key:"facebook", label:"Facebook",    color:"#1877F2", charLimit:63206,
-   postAction:(text,s)=>{ navigator.clipboard.writeText(text); window.open(s?.facebookUrl||"https://www.facebook.com/","_blank"); return {note:"Text copied — paste into Facebook."}; }},
+   postAction:(text,s)=>{ navigator.clipboard.writeText(text); window.open(s&&s.facebookUrl||"https://www.facebook.com/","_blank"); return {note:"Text copied — paste into Facebook."}; }},
   {key:"instagram",label:"Instagram",   color:"#E1306C", charLimit:2200,
-   postAction:(text,s)=>{ navigator.clipboard.writeText(text); window.open(s?.instagramUrl||"https://www.instagram.com/","_blank"); return {note:"Text copied — paste into Instagram."}; }},
+   postAction:(text,s)=>{ navigator.clipboard.writeText(text); window.open(s&&s.instagramUrl||"https://www.instagram.com/","_blank"); return {note:"Text copied — paste into Instagram."}; }},
   {key:"email",    label:"Email",       color:"#34C759", charLimit:10000,
-   postAction:(text,s,ev)=>{ const sub=encodeURIComponent(`Event: ${ev?.title||""}`); const body=encodeURIComponent(text); const to=s?.emailTo?encodeURIComponent(s.emailTo):""; window.open(`mailto:${to}?subject=${sub}&body=${body}`,"_blank"); return {note:"Email client opened."}; }},
+   postAction:(text,s,ev)=>{ const sub=encodeURIComponent(`Event: ${ev&&ev.title||""}`); const body=encodeURIComponent(text); const to=s&&s.emailTo?encodeURIComponent(s.emailTo):""; window.open(`mailto:${to}?subject=${sub}&body=${body}`,"_blank"); return {note:"Email client opened."}; }},
   {key:"file",     label:"Save as File",color:"#BF5AF2", charLimit:999999,
-   postAction:(text,s,ev)=>{ const ts=new Date().toISOString().split("T")[0]; const fn=`Post-${(ev?.title||"event").replace(/[^a-zA-Z0-9]/g,"-").substring(0,40)}-${ts}.md`; const blob=new Blob([`# ${ev?.title||"Event"}\n_${fmtDate(ev?.date)}_\n\n---\n\n${text}`],{type:"text/markdown"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=fn; a.click(); return {note:`Saved as ${fn}`}; }},
+   postAction:(text,s,ev)=>{ const ts=new Date().toISOString().split("T")[0]; const fn=`Post-${(ev&&ev.title||"event").replace(/[^a-zA-Z0-9]/g,"-").substring(0,40)}-${ts}.md`; const blob=new Blob([`# ${ev&&ev.title||"Event"}\n_${fmtDate(ev&&ev.date)}_\n\n---\n\n${text}`],{type:"text/markdown"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=fn; a.click(); return {note:`Saved as ${fn}`}; }},
 ];
 
 // ── API ───────────────────────────────────────────────────────────────────────
 async function callClaude(messages, system, settings) {
-  const apiKey=(settings?.useSharedKey?settings?.sharedApiKey:settings?.apiKey)||window.ANTHROPIC_API_KEY||localStorage.getItem("aacc-api-key")||"";
+  const apiKey=((settings&&settings.useSharedKey?settings.sharedApiKey:settings&&settings.apiKey))||window.ANTHROPIC_API_KEY||localStorage.getItem("aacc-api-key")||"";
   if (!apiKey) throw new Error("NO_API_KEY");
   const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,system,messages})});
-  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e?.error?.message||"API error "+r.status);}
+  if(!r.ok){const e=await r.json().catch(function(){return {};});throw new Error(e&&e.error&&e.error.message||"API error "+r.status);}
   return r.json();
 }
 
@@ -689,7 +689,7 @@ function BatchModal({queue,settings,onUpdateText,onRemove,onClose,onPosted,toast
                 return (
                   <div key={q.eventId+q.platformKey} style={{background:T.bgCardAlt,borderRadius:"12px",overflow:"hidden",border:`1px solid ${T.border}`}}>
                     <div style={{padding:"8px 12px",background:T.bgCard,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <div><span style={{fontWeight:"600",fontSize:"13px",color:pCfg?.color}}>{pCfg?.label}</span><span style={{fontSize:"12px",color:T.textMuted,marginLeft:"8px"}}>{q.eventTitle}</span></div>
+                      <div><span style={{fontWeight:"600",fontSize:"13px",color:pCfg&&pCfg.color}}>{pCfg&&pCfg.label}</span><span style={{fontSize:"12px",color:T.textMuted,marginLeft:"8px"}}>{q.eventTitle}</span></div>
                       <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
                         {res==="ok"&&<span style={{fontSize:"16px"}}>✅</span>}
                         {res==="err"&&<span style={{fontSize:"16px"}}>❌</span>}
@@ -797,7 +797,7 @@ function App() {
   const addToQueue=(event,pKey)=>{
     const text=(editedPosts[event.id]?.[pKey])||(posts[event.id]?.[pKey])||"";
     setQueue(prev=>[...prev.filter(q=>!(q.eventId===event.id&&q.platformKey===pKey)),{eventId:event.id,platformKey:pKey,text,eventTitle:event.title,eventDate:event.date}]);
-    toast("Added to queue: "+ALL_PLATFORMS.find(p=>p.key===pKey)?.label);
+    toast("Added to queue: "+(ALL_PLATFORMS.find(p=>p.key===pKey)||{}).label);
   };
   const removeFromQueue=(eid,pKey)=>setQueue(prev=>prev.filter(q=>!(q.eventId===eid&&q.platformKey===pKey)));
   const updateQueueText=(eid,pKey,text)=>setQueue(prev=>prev.map(q=>q.eventId===eid&&q.platformKey===pKey?{...q,text}:q));
@@ -883,7 +883,7 @@ function App() {
   const updateEditedPost=(eid,pKey,val)=>setEditedPosts(prev=>({...prev,[eid]:{...prev[eid],[pKey]:val}}));
   const saveEditedPost=async(eid)=>{ const ep=editedPosts[eid]; if(!ep) return; await savePosts({...posts,[eid]:{...posts[eid],...ep,lastEdited:new Date().toISOString()}}); toast("Edits saved"); };
   const openModal=(event,pKey)=>{ const text=(editedPosts[event.id]?.[pKey])||(posts[event.id]?.[pKey])||""; if(!text){toast("Generate posts first","err");return;} setModal({event,platformKey:pKey,text}); };
-  const deleteEvent=async(id)=>{ const ev=events.find(e=>e.id===id); if(!window.confirm(`Delete "${ev?.title}"?${posts[id]?"\n\nThis will also remove generated posts.":""}`)) return; await saveEvents(events.filter(e=>e.id!==id)); const np={...posts}; delete np[id]; await savePosts(np); const ne={...editedPosts}; delete ne[id]; setEditedPosts(ne); toast("Deleted"); };
+  const deleteEvent=async(id)=>{ const ev=events.find(e=>e.id===id); if(!window.confirm(`Delete "${ev&&ev.title}"?${posts[id]?"\n\nThis will also remove generated posts.":""}`)) return; await saveEvents(events.filter(e=>e.id!==id)); const np={...posts}; delete np[id]; await savePosts(np); const ne={...editedPosts}; delete ne[id]; setEditedPosts(ne); toast("Deleted"); };
   const copyScript=()=>navigator.clipboard.writeText(CONSOLE_SCRIPT).then(()=>{setScriptCopied(true);setTimeout(()=>setScriptCopied(false),2500);});
 
   const upcoming=events.filter(e=>isFuture(e.date));
