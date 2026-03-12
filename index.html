@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-  <title>Social Media Assistant v1.7</title>
+  <title>Social Media Assistant v1.8</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -34,7 +34,7 @@ const {useState,useEffect,useCallback,useRef}=React;
 const DARK  = { bg:"#080F1E", bgCard:"rgba(0,20,60,.6)", bgCardAlt:"rgba(0,0,0,.3)", stats:"rgba(0,0,0,.2)", text:"#F0F4FF", textSub:"#6B8FAD", gold:"#FFCD00", border:"#1E3A5F", accent:"#3B82F6", warning:"rgba(0,0,0,.5)" };
 const LIGHT = { bg:"#E8EEF5", bgCard:"rgba(255,255,255,.85)", bgCardAlt:"rgba(255,255,255,.6)", stats:"rgba(255,255,255,.7)", text:"#1a202c", textSub:"#4a5568", gold:"#B7791F", border:"#BED0E0", accent:"#3182CE", warning:"rgba(0,0,0,.08)" };
 const SK_THEME = "sma-theme-v1";
-const VERSION = "v1.7";
+const VERSION = "v1.8";
 
 const SK_EVENTS = "aacc-events-v3";
 const SK_POSTS  = "aacc-posts-v3";
@@ -686,13 +686,20 @@ function App() {
     if (!settings.setupComplete) { setShowSettings(true); return; }
     setGenId(event.id);
     const platformList = activePlatforms.map(p=>{
-      const limits={linkedin:"MAX 1300 CHARS (≈150 words). Professional tone, 2-3 hashtags.",twitter:"HARD LIMIT: 260 CHARS MAXIMUM. Count every character. Punchy, 1-2 hashtags.",facebook:"MAX 800 CHARS (≈100 words). Warm and friendly tone.",instagram:"MAX 1200 CHARS (≈150 words). Emojis welcome, 5-8 hashtags at the end.",email:"MAX 1500 CHARS (≈200 words). Formal invitation style with event details and registration link.",file:"MAX 2000 CHARS. Full event details covering all key info."};
+      const limits={
+        linkedin:"MAX 1300 CHARS. Format:\n- Opening hook sentence\n- 2-3 short paragraphs with event details\n- Key info on separate lines using emoji bullets (📍 Venue, 📅 Date/Time, 🎟️ Registration)\n- 1-sentence CTA with the event URL\n- 2-3 hashtags at the end\nProfessional, engaging tone.",
+        twitter:"HARD LIMIT: 260 CHARS MAXIMUM — count every character. Format: one punchy title/hook sentence, then the event URL on a new line. No hashtags unless under limit.",
+        facebook:"MAX 800 CHARS. Format:\n- Exciting opening hook\n- 2 short paragraphs: what the event is + who should attend (use ✅ bullet lines)\n- Key info lines: 📍 Venue, 📅 Date, 🕐 Time\n- RSVP CTA line with event URL\n- 3-4 hashtags at the very end\nWarm, friendly, community tone.",
+        instagram:"MAX 1200 CHARS. Format:\n- Conversational opening (use 'Come say G\'day' style or casual hook)\n- 2-3 short paragraphs about the event\n- Bullet list of key features/perks (use * or emoji bullets)\n- Registration CTA with URL\n- 5-8 hashtags at the end\nCasual, warm, community feel.",
+        email:"MAX 1500 CHARS. Formal invitation: subject-ready opening, full event details (date/time/venue/address), what to expect, registration instructions with URL, contact info if available.",
+        file:"MAX 2000 CHARS. Comprehensive: all event details, multi-platform summary."
+      };
       return `"${p.key}": "${limits[p.key]||'100-150 words'}"`;
     }).join(",\n  ");
     try {
       const orgName = settings.orgName || "";
       const hashtags = settings.hashtags || "";
-      const data=await callClaude([{role:"user",content:`Create social media posts for this event:\n\nTitle: ${event.title}\nDate: ${fmtDate(event.date)}${event.starts?" ("+event.starts+")":""}\nVenue: ${event.venue||""}${event.address?" — "+event.address:""}\nDescription: ${event.description||"Networking event."}\nType: ${event.type}\nRegistration: ${event.registration}\nURL: ${event.url}\n${orgName?"Organisation: "+orgName+"\n":""}\nWrite posts for these platforms. Return ONLY this JSON (no markdown):\n{\n  ${platformList}\n}\n${hashtags?"Include these hashtags where appropriate: "+hashtags+"\n":""}Keep the tone professional, engaging, and appropriate for the platform.`}],
+      const data=await callClaude([{role:"user",content:`Create social media posts for this event:\n\nTitle: ${event.title}\nDate: ${fmtDate(event.date)}${event.starts?" ("+event.starts+")":""}\nVenue: ${event.venue||""}${event.address?" — "+event.address:""}\nDescription: ${event.description||"Networking event."}\nType: ${event.type}\nRegistration: ${event.registration}\nURL: ${event.url}\n${orgName?"Organisation: "+orgName+"\n":""}\nWrite posts for these platforms. Return ONLY this JSON (no markdown):\n{\n  ${platformList}\n}\n${hashtags?"Include these hashtags where appropriate: "+hashtags+"\n":""}IMPORTANT: Each post MUST include the event URL (${event.url}) as a link back to the original event page. Follow the format instructions precisely for each platform.`}],
         "Return ONLY valid JSON. No markdown fences. No explanation.", settings);
       const text=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
       const match=text.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/);
@@ -740,13 +747,20 @@ const generateRecap = async () => {
     if (!recapUrl.trim()) return;
     setRecapLoading(true); setRecapError(null); setRecapPosts(null);
     const platformList = activePlatforms.map(p=>{
-      const limits={linkedin:"MAX 1300 CHARS (≈150 words). Professional recap, 2-3 hashtags.",twitter:"HARD LIMIT: 260 CHARS MAXIMUM. Count every character. Brief and punchy.",facebook:"MAX 800 CHARS (≈100 words). Warm thank-you recap.",instagram:"MAX 1200 CHARS (≈150 words). Emojis welcome, 5-8 hashtags at the end.",email:"MAX 1500 CHARS (≈200 words). Brief thank-you recap with key highlights.",file:"MAX 2000 CHARS. Full recap summary."};
+      const limits={
+        linkedin:"MAX 1300 CHARS. Past-tense recap format:\n- Opening: 'What a fantastic [event name]!'\n- 2 short paragraphs: highlights + thank attendees\n- 📍 Venue, 📅 Date on separate lines\n- Link back to event page\n- 2-3 hashtags\nProfessional tone.",
+        twitter:"HARD LIMIT: 260 CHARS MAXIMUM — count every character. One punchy past-tense recap sentence + event URL on new line.",
+        facebook:"MAX 800 CHARS. Past-tense recap:\n- Warm opening celebrating the event\n- 1-2 sentences of highlights\n- Thank-you to attendees and sponsors\n- Link back to event page\n- 3-4 hashtags at the end.",
+        instagram:"MAX 1200 CHARS. Casual past-tense recap:\n- 'What an amazing night!' style opener\n- Short paragraphs with highlights\n- * bullet points of event features/moments\n- Tag or thank key people/sponsors\n- Link to event page\n- 5-8 hashtags at end.",
+        email:"MAX 1500 CHARS. Thank-you recap email: warm subject line, thanks to attendees, event highlights, link to event page/photos, sign-off.",
+        file:"MAX 2000 CHARS. Full recap with all highlights."
+      };
       return '"'+p.key+'": "'+( limits[p.key]||"max 150 words")+'"';
     }).join(",\n  ");
     const orgName = settings.orgName || "";
     const hashtags = settings.hashtags || "";
     try {
-      const data = await callClaude([{role:"user",content:"Write SHORT retrospective social media posts recapping this past event. URL: "+recapUrl+"\n\nBe brief and punchy. Past tense. Thank attendees in one sentence max. Strict word/char limits below.\n{\n  "+platformList+"\n}\n"+(orgName?"Organisation: "+orgName+"\n":"")+(hashtags?"Hashtags to include: "+hashtags+"\n":"")+"Return ONLY valid JSON, no markdown."}],
+      const data = await callClaude([{role:"user",content:"Write social media recap posts for this past event.\nEvent page URL: "+recapUrl+"\n\nPast tense. Follow the format and char limits strictly.\n{\n  "+platformList+"\n}\n"+(orgName?"Organisation: "+orgName+"\n":"")+(hashtags?"Hashtags: "+hashtags+"\n":"")+"IMPORTANT: Each post MUST include a link back to the event page URL above.\nReturn ONLY valid JSON, no markdown."}],
         "Return ONLY valid JSON. No markdown fences. No explanation. You MUST count characters and stay within the HARD limits specified. If a post exceeds the limit, cut it down before returning.", settings);
       const text=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
       const match=text.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/);
