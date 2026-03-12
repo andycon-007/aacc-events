@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-  <title>Social Media Assistant v1.5</title>
+  <title>Social Media Assistant v1.6</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -34,7 +34,7 @@ const {useState,useEffect,useCallback,useRef}=React;
 const DARK  = { bg:"#080F1E", bgCard:"rgba(0,20,60,.6)", bgCardAlt:"rgba(0,0,0,.3)", stats:"rgba(0,0,0,.2)", text:"#F0F4FF", textSub:"#6B8FAD", gold:"#FFCD00", border:"#1E3A5F", accent:"#3B82F6", warning:"rgba(0,0,0,.5)" };
 const LIGHT = { bg:"#E8EEF5", bgCard:"rgba(255,255,255,.85)", bgCardAlt:"rgba(255,255,255,.6)", stats:"rgba(255,255,255,.7)", text:"#1a202c", textSub:"#4a5568", gold:"#B7791F", border:"#BED0E0", accent:"#3182CE", warning:"rgba(0,0,0,.08)" };
 const SK_THEME = "sma-theme-v1";
-const VERSION = "v1.5";
+const VERSION = "v1.6";
 
 const SK_EVENTS = "aacc-events-v3";
 const SK_POSTS  = "aacc-posts-v3";
@@ -622,7 +622,7 @@ function App() {
       const filtered = prev.filter(q => !(q.eventId===event.id && q.platformKey===platformKey));
       return [...filtered, {eventId:event.id, platformKey, text, eventTitle:event.title, eventDate:event.date}];
     });
-    toast(`Added to queue: ${ALL_PLATFORMS.find(p=>p.key===platformKey)?.label}`);
+    toast(`Added to queue: ${(ALL_PLATFORMS.find(p=>p.key===platformKey)||{}).label}`);
   };
   const removeFromQueue = (eventId, platformKey) => {
     setQueue(prev => prev.filter(q => !(q.eventId===eventId && q.platformKey===platformKey)));
@@ -686,7 +686,7 @@ function App() {
     if (!settings.setupComplete) { setShowSettings(true); return; }
     setGenId(event.id);
     const platformList = activePlatforms.map(p=>{
-      const limits={linkedin:"150-200 words, professional, hashtags",twitter:"MAX 260 CHARS — punchy, 2-3 hashtags",facebook:"100-150 words, warm friendly",instagram:"150-200 words, emojis, 10-15 hashtags at end",email:"200-300 words, formal invitation style, include event details and registration link",file:"200-300 words, full event details, all platforms combined"};
+      const limits={linkedin:"MAX 1300 CHARS (≈150 words). Professional tone, 2-3 hashtags.",twitter:"HARD LIMIT: 260 CHARS MAXIMUM. Count every character. Punchy, 1-2 hashtags.",facebook:"MAX 800 CHARS (≈100 words). Warm and friendly tone.",instagram:"MAX 1200 CHARS (≈150 words). Emojis welcome, 5-8 hashtags at the end.",email:"MAX 1500 CHARS (≈200 words). Formal invitation style with event details and registration link.",file:"MAX 2000 CHARS. Full event details covering all key info."};
       return `"${p.key}": "${limits[p.key]||'100-150 words'}"`;
     }).join(",\n  ");
     try {
@@ -740,14 +740,14 @@ const generateRecap = async () => {
     if (!recapUrl.trim()) return;
     setRecapLoading(true); setRecapError(null); setRecapPosts(null);
     const platformList = activePlatforms.map(p=>{
-      const limits={linkedin:"max 200 words, professional, 2-3 hashtags",twitter:"MAX 260 CHARS — concise, 1-2 hashtags",facebook:"max 150 words, warm and friendly",instagram:"max 200 words, emojis, 5-8 hashtags at end",email:"max 250 words, brief thank-you recap style",file:"max 300 words, full recap summary"};
+      const limits={linkedin:"MAX 1300 CHARS (≈150 words). Professional recap, 2-3 hashtags.",twitter:"HARD LIMIT: 260 CHARS MAXIMUM. Count every character. Brief and punchy.",facebook:"MAX 800 CHARS (≈100 words). Warm thank-you recap.",instagram:"MAX 1200 CHARS (≈150 words). Emojis welcome, 5-8 hashtags at the end.",email:"MAX 1500 CHARS (≈200 words). Brief thank-you recap with key highlights.",file:"MAX 2000 CHARS. Full recap summary."};
       return '"'+p.key+'": "'+( limits[p.key]||"max 150 words")+'"';
     }).join(",\n  ");
     const orgName = settings.orgName || "";
     const hashtags = settings.hashtags || "";
     try {
       const data = await callClaude([{role:"user",content:"Write SHORT retrospective social media posts recapping this past event. URL: "+recapUrl+"\n\nBe brief and punchy. Past tense. Thank attendees in one sentence max. Strict word/char limits below.\n{\n  "+platformList+"\n}\n"+(orgName?"Organisation: "+orgName+"\n":"")+(hashtags?"Hashtags to include: "+hashtags+"\n":"")+"Return ONLY valid JSON, no markdown."}],
-        "Return ONLY valid JSON. No markdown fences. No explanation. Strictly respect the word/character limits.", settings);
+        "Return ONLY valid JSON. No markdown fences. No explanation. You MUST count characters and stay within the HARD limits specified. If a post exceeds the limit, cut it down before returning.", settings);
       const text=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
       const match=text.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/);
       if(!match) throw new Error("Could not parse response");
@@ -791,7 +791,7 @@ const generateRecap = async () => {
       {modal&&<PreviewModal modal={modal} settings={settings} onClose={()=>setModal(null)}
         onUpdateText={(t)=>{ setModal(m=>({...m,text:t,editText:t})); updateEditedPost(modal.event.id, modal.platformKey, t); }}
       />}
-      {showExport&&<ExportModal events={events} posts={posts} editedPosts={editedPosts} onClose={()=>setShowExport(false)} toast={toast}/>}
+      {showExport&&<ExportModal events={events} posts={posts} editedPosts={editedPosts} onClose={()=>setShowExport(false)} toast={toast} activePlatforms={activePlatforms}/>}
       {showBatch&&<BatchConfirmModal queue={queue} events={events} settings={settings}
         onUpdateText={updateQueueText} onRemove={removeFromQueue}
         onClose={()=>setShowBatch(false)}
@@ -1375,7 +1375,7 @@ function EventCard({T,event,post,editedPost,isPast,isExpanded,isGenerating,onGen
         <div style={{borderTop:"1px solid "+(T?T.border:"#1E3A5F"),padding:"16px 20px"}}>
           {/* Full event image */}
           <img src={event.imageUrl} alt={event.title} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
-          <PostEditor T={T} post={post} editedPost={editedPost} eventId={event.id} event={event} onUpdateText={onUpdateText} onSaveEdits={onSaveEdits} onOpenModal={onOpenModal} onAddToQueue={onAddToQueue} onIsQueued={onIsQueued}/>
+          <PostEditor T={T} post={post} editedPost={editedPost} eventId={event.id} event={event} onUpdateText={onUpdateText} onSaveEdits={onSaveEdits} onOpenModal={onOpenModal} onAddToQueue={onAddToQueue} onIsQueued={onIsQueued} activePlatforms={activePlatforms}/>
         </div>
       )}
     </div>
@@ -1397,7 +1397,7 @@ function PostCard({T,event,post,editedPost,onUpdateText,onSaveEdits,onOpenModal,
       </div>
       <div style={{padding:"16px 20px"}}>
         <img src={event.imageUrl} alt={event.title} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
-        <PostEditor T={T} post={post} editedPost={editedPost} eventId={event.id} event={event} onUpdateText={onUpdateText} onSaveEdits={onSaveEdits} onOpenModal={onOpenModal} onAddToQueue={onAddToQueue} onIsQueued={onIsQueued}/>
+        <PostEditor T={T} post={post} editedPost={editedPost} eventId={event.id} event={event} onUpdateText={onUpdateText} onSaveEdits={onSaveEdits} onOpenModal={onOpenModal} onAddToQueue={onAddToQueue} onIsQueued={onIsQueued} activePlatforms={activePlatforms}/>
       </div>
     </div>
   );
@@ -1406,7 +1406,7 @@ function PostCard({T,event,post,editedPost,onUpdateText,onSaveEdits,onOpenModal,
 // ═════════════════════════════════════════════════════════════════════════════
 // POST EDITOR — editable textareas + Post buttons per platform
 // ═════════════════════════════════════════════════════════════════════════════
-function PostEditor({T,post, editedPost, eventId, event, onUpdateText, onSaveEdits, onOpenModal, onAddToQueue, onIsQueued}) {
+function PostEditor({T,post, editedPost, eventId, event, onUpdateText, onSaveEdits, onOpenModal, onAddToQueue, onIsQueued, activePlatforms}) {
   const [dirty, setDirty] = useState(false);
 
   const handleChange = (pKey, val) => {
@@ -1495,7 +1495,7 @@ function PostEditor({T,post, editedPost, eventId, event, onUpdateText, onSaveEdi
 // ═════════════════════════════════════════════════════════════════════════════
 // EXPORT MODAL
 // ═════════════════════════════════════════════════════════════════════════════
-function ExportModal({events, posts, editedPosts, onClose, toast}) {
+function ExportModal({events, posts, editedPosts, onClose, toast, activePlatforms}) {
   const eventsWithPosts = events.filter(e => posts[e.id]);
   const [selected, setSelected] = useState(new Set(eventsWithPosts.map(e=>e.id)));
   const [fmt, setFmt] = useState("md");
