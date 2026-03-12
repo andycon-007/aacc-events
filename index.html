@@ -12,122 +12,19 @@
   <style>
     * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
     body { background:#080F1E; font-family:Georgia,serif; }
-
-    /* API Key Banner */
-    #api-banner {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
-      background: #0d1b35; border-bottom: 2px solid #FFCD00;
-      padding: 8px 16px;
-      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-      font-size: 13px; color: #E2D9C5;
-    }
-    #api-banner.hidden { display: none; }
-    #api-banner label { font-weight: bold; white-space: nowrap; }
-    #api-banner input {
-      flex: 1; min-width: 160px; max-width: 340px;
-      padding: 6px 10px; border-radius: 6px;
-      border: 1px solid #FFCD00; background: #080F1E; color: #E2D9C5;
-      font-size: 13px; font-family: monospace;
-    }
-    #api-banner .btn-save {
-      padding: 6px 14px; border-radius: 6px; border: none; cursor: pointer;
-      background: #FFCD00; color: #001A4D; font-weight: bold; font-size: 13px;
-      white-space: nowrap;
-    }
-    #api-banner .btn-hide {
-      padding: 4px 8px; border-radius: 4px; border: 1px solid #6B8FAD;
-      background: transparent; color: #6B8FAD; font-size: 11px; cursor: pointer;
-      white-space: nowrap; margin-left: auto;
-    }
-    #api-banner .status { font-size: 12px; white-space: nowrap; }
-    #api-banner .help-link { font-size: 11px; color: #6B8FAD; white-space: nowrap; }
-    #api-banner .help-link a { color: #FFCD00; }
-
-    /* Key saved indicator in corner */
-    #key-indicator {
-      position: fixed; top: 6px; right: 10px; z-index: 10000;
-      background: #1a3a1a; border: 1px solid #4CAF50; border-radius: 20px;
-      padding: 3px 10px; font-size: 11px; color: #4CAF50;
-      cursor: pointer; display: none;
-    }
-
-    #root { padding-top: 0; }
     #root.has-banner { padding-top: 56px; }
 
     /* Mobile tweaks */
     @media (max-width: 600px) {
-      #api-banner { padding: 8px 12px; gap: 8px; }
-      #api-banner input { font-size: 12px; }
     }
   </style>
 </head>
 <body>
 
-<div id="api-banner">
-  <label>🔑 Anthropic API Key</label>
-  <input type="password" id="key-input" placeholder="sk-ant-api03-..." autocomplete="off" autocorrect="off" spellcheck="false"/>
-  <button class="btn-save" onclick="saveKey()">Save</button>
-  <span class="status" id="key-status"></span>
-  <span class="help-link">
-    <a href="https://console.anthropic.com/settings/keys" target="_blank">Get free key ↗</a>
-  </span>
-  <button class="btn-hide" onclick="hideBanner()">Hide ✕</button>
-</div>
 
-<div id="key-indicator" onclick="showBanner()">🔑 Key saved ✓</div>
 <div id="root"></div>
 
-<script>
-  // --- API Key management ---
-  function loadKey() {
-    const k = localStorage.getItem("aacc-api-key");
-    if (k) {
-      document.getElementById("key-input").value = k;
-      window.ANTHROPIC_API_KEY = k;
-      setStatus("✓ Key loaded", "#4CAF50");
-    }
-  }
-  function saveKey() {
-    const k = document.getElementById("key-input").value.trim();
-    if (!k) { setStatus("⚠ Enter a key", "#FF6B6B"); return; }
-    if (!k.startsWith("sk-ant-")) { setStatus("⚠ Should start with sk-ant-", "#FF6B6B"); return; }
-    localStorage.setItem("aacc-api-key", k);
-    window.ANTHROPIC_API_KEY = k;
-    setStatus("✓ Saved!", "#4CAF50");
-    setTimeout(hideBanner, 1200);
-  }
-  function setStatus(msg, color) {
-    const el = document.getElementById("key-status");
-    el.textContent = msg; el.style.color = color;
-  }
-  function hideBanner() {
-    document.getElementById("api-banner").classList.add("hidden");
-    document.getElementById("root").classList.remove("has-banner");
-    if (window.ANTHROPIC_API_KEY) {
-      document.getElementById("key-indicator").style.display = "block";
-    }
-  }
-  function showBanner() {
-    document.getElementById("api-banner").classList.remove("hidden");
-    document.getElementById("root").classList.add("has-banner");
-    document.getElementById("key-indicator").style.display = "none";
-  }
 
-  // Allow Enter key to save
-  document.getElementById("key-input").addEventListener("keydown", e => {
-    if (e.key === "Enter") saveKey();
-  });
-
-  // localStorage storage polyfill
-  window.storage = {
-    get: (key) => { try { const v=localStorage.getItem(key); return Promise.resolve(v ? {key,value:v} : null); } catch(e) { return Promise.resolve(null); } },
-    set: (key, value) => { try { localStorage.setItem(key,String(value)); return Promise.resolve({key,value}); } catch(e) { return Promise.resolve(null); } },
-    delete: (key) => { try { localStorage.removeItem(key); return Promise.resolve({key,deleted:true}); } catch(e) { return Promise.resolve(null); } },
-    list: (prefix) => { try { const keys=Object.keys(localStorage).filter(k=>!prefix||k.startsWith(prefix)); return Promise.resolve({keys}); } catch(e) { return Promise.resolve({keys:[]}); } }
-  };
-
-  loadKey();
-</script>
 
 <script type="text/babel">
 const {useState,useEffect,useCallback,useRef}=React;
@@ -210,7 +107,7 @@ const ALL_PLATFORMS = [
     charLimit:3000,
     postAction: (text, settings) => {
       navigator.clipboard.writeText(text);
-      window.open(settings?.linkedinUrl || "https://www.linkedin.com/feed/?shareActive=true","_blank");
+      window.open(settings&&settings.linkedinUrl || "https://www.linkedin.com/feed/?shareActive=true","_blank");
       return {status:"copied+opened", note:"Text copied — paste into LinkedIn post composer."};
     },
   },
@@ -228,7 +125,7 @@ const ALL_PLATFORMS = [
     charLimit:63206,
     postAction: (text, settings) => {
       navigator.clipboard.writeText(text);
-      window.open(settings?.facebookUrl || "https://www.facebook.com/","_blank");
+      window.open(settings&&settings.facebookUrl || "https://www.facebook.com/","_blank");
       return {status:"copied+opened", note:"Text copied — paste into Facebook post composer."};
     },
   },
@@ -237,7 +134,7 @@ const ALL_PLATFORMS = [
     charLimit:2200,
     postAction: (text, settings) => {
       navigator.clipboard.writeText(text);
-      window.open(settings?.instagramUrl || "https://www.instagram.com/","_blank");
+      window.open(settings&&settings.instagramUrl || "https://www.instagram.com/","_blank");
       return {status:"copied+opened", note:"Text copied — paste in Instagram (Creator Studio or app)."};
     },
   },
@@ -245,9 +142,9 @@ const ALL_PLATFORMS = [
     key:"email", label:"Email", icon:"✉️", color:"#059669", bgColor:"#ECFDF5",
     charLimit:10000,
     postAction: (text, settings, event) => {
-      const subject = encodeURIComponent(`AACC Texas Event: ${event?.title||""}`);
+      const subject = encodeURIComponent("Event: "+(event&&event.title||""));
       const body = encodeURIComponent(text);
-      const to = settings?.emailTo ? encodeURIComponent(settings.emailTo) : "";
+      const to = settings&&settings.emailTo ? encodeURIComponent(settings.emailTo) : "";
       window.open(`mailto:${to}?subject=${subject}&body=${body}`,"_blank");
       return {status:"mailto", note:"Your email client opened with the post pre-filled."};
     },
@@ -257,8 +154,8 @@ const ALL_PLATFORMS = [
     charLimit:999999,
     postAction: (text, settings, event) => {
       const ts = new Date().toISOString().split("T")[0];
-      const filename = `AACC-${(event?.title||"post").replace(/[^a-zA-Z0-9]/g,"-").substring(0,40)}-${ts}.md`;
-      const content = `# ${event?.title||"AACC Texas Event"}\n_${fmtDate(event?.date)}_\n\n---\n\n${text}`;
+      const filename = "Event-"+(event&&event.title||"post").replace(/[^a-zA-Z0-9]/g,"-").substring(0,40)+"-"+ts+".md";
+      const content = "# "+(event&&event.title||"Event")+"\n_"+fmtDate(event&&event.date)+"_\n\n---\n\n"+text;
       downloadFile(filename, content, "text/markdown");
       return {status:"downloaded", note:`Saved as ${filename}`};
     },
@@ -267,7 +164,7 @@ const ALL_PLATFORMS = [
 
 // ── callClaude (uses settings for API key) ────────────────────────────────────
 async function callClaude(messages, system, settings) {
-  const apiKey = (settings?.useSharedKey ? settings?.sharedApiKey : settings?.apiKey)
+  const apiKey = (settings&&settings.useSharedKey ? settings&&settings.sharedApiKey : settings&&settings.apiKey)
     || window.ANTHROPIC_API_KEY || localStorage.getItem("aacc-api-key") || "";
   if (!apiKey) throw new Error("NO_API_KEY");
   const r = await fetch("https://api.anthropic.com/v1/messages",{
@@ -278,7 +175,7 @@ async function callClaude(messages, system, settings) {
   });
   if (!r.ok) {
     const e = await r.json().catch(()=>({}));
-    throw new Error(e?.error?.message||"API error "+r.status);
+    throw new Error((e&&e.error&&e.error.message)||"API error "+r.status);
   }
   return r.json();
 }
@@ -312,7 +209,7 @@ function downloadFile(filename, content, mimeType) {
 
 function exportMarkdown(eventsToExport, posts, editedPosts) {
   const ts = new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"});
-  let md = `# AACC Texas — Social Media Posts\n_Exported ${ts}_\n\n---\n\n`;
+  let md = `# Social Media Posts\n_Exported ${ts}_\n\n---\n\n`;
   eventsToExport.forEach(ev => {
     const p = posts[ev.id]; if (!p) return;
     const ep = editedPosts[ev.id] || {};
@@ -443,12 +340,12 @@ function SettingsPage({settings, onSave, onClose, isFirstRun, isDark, onToggleTh
         <div style={{display:"flex",alignItems:"center",gap:"14px"}}>
           <div>
             <div style={{fontSize:"18px",fontWeight:"bold",color:"#FFCD00",letterSpacing:"2px",textTransform:"uppercase"}}>Settings</div>
-            <div style={{fontSize:"11px",color:"#93B4D4",letterSpacing:"1px",textTransform:"uppercase",marginTop:"2px"}}>{isFirstRun?"Welcome — let's get you set up":"Configure your posting preferences"}</div>
+            <div style={{fontSize:"11px",color:T.textSub,letterSpacing:"1px",textTransform:"uppercase",marginTop:"2px"}}>{isFirstRun?"Welcome — let's get you set up":"Configure your posting preferences"}</div>
           </div>
         </div>
         {onToggleTheme&&<button onClick={onToggleTheme} style={{background:"none",border:"none",cursor:"pointer",fontSize:"18px",padding:"6px 10px",lineHeight:1}}>{isDark?"☀️":"🌙"}</button>}
         {!isFirstRun&&onClose&&(
-          <button onClick={onClose} style={{background:"transparent",color:"#6B8FAD",border:"1px solid #1E3A5F",borderRadius:"8px",padding:"8px 16px",cursor:"pointer",fontSize:"13px"}}>← Back to App</button>
+          <button onClick={onClose} style={{background:"transparent",color:T.textSub,border:"1px solid "+T.border,borderRadius:"8px",padding:"8px 16px",cursor:"pointer",fontSize:"13px"}}>← Back to App</button>
         )}
       </div>
 
@@ -456,7 +353,7 @@ function SettingsPage({settings, onSave, onClose, isFirstRun, isDark, onToggleTh
 
         {isFirstRun&&(
           <div style={{background:"rgba(255,205,0,.08)",border:"1px solid #FFCD0044",borderRadius:"12px",padding:"16px 20px",fontSize:"14px",color:"#FFCD00",lineHeight:"1.7"}}>
-            👋 <strong>Welcome!</strong> Complete these steps to start generating and posting AACC Texas event content. You only need to do this once.
+            👋 <strong>Welcome!</strong> Complete these steps to start generating and posting social media content for your events.
           </div>
         )}
 
@@ -466,8 +363,8 @@ function SettingsPage({settings, onSave, onClose, isFirstRun, isDark, onToggleTh
             <label style={{display:"flex",alignItems:"center",gap:"10px",cursor:"pointer"}}>
               <Toggle checked={!local.useSharedKey} onChange={()=>set("useSharedKey",false)}/>
               <div>
-                <div style={{fontSize:"14px",color:"#E2D9C5",fontWeight:"bold"}}>Use my personal API key</div>
-                <div style={{fontSize:"12px",color:"#6B8FAD"}}>You pay for your own usage (~$0.01–0.02 per Generate)</div>
+                <div style={{fontSize:"14px",color:T.text,fontWeight:"bold"}}>Use my personal API key</div>
+                <div style={{fontSize:"12px",color:T.textSub}}>You pay for your own usage (~$0.01–0.02 per Generate)</div>
               </div>
             </label>
             {!local.useSharedKey&&(
@@ -476,7 +373,7 @@ function SettingsPage({settings, onSave, onClose, isFirstRun, isDark, onToggleTh
                   placeholder="sk-ant-api03-..." style={inputStyle}/>
                 <button onClick={()=>setShowPersonalKey(s=>!s)} style={eyeBtn}>{showPersonalKey?"🙈":"👁️"}</button>
                 {!local.apiKey&&(
-                  <div style={{marginTop:"8px",fontSize:"12px",color:"#6B8FAD"}}>
+                  <div style={{marginTop:"8px",fontSize:"12px",color:T.textSub}}>
                     Get yours at <a href="https://platform.claude.com/settings/keys" target="_blank" rel="noopener noreferrer" style={{color:"#3B82F6"}}>platform.claude.com/settings/keys</a>
                   </div>
                 )}
@@ -485,8 +382,8 @@ function SettingsPage({settings, onSave, onClose, isFirstRun, isDark, onToggleTh
             <label style={{display:"flex",alignItems:"center",gap:"10px",cursor:"pointer"}}>
               <Toggle checked={local.useSharedKey} onChange={()=>set("useSharedKey",true)}/>
               <div>
-                <div style={{fontSize:"14px",color:"#E2D9C5",fontWeight:"bold"}}>Use shared key (admin-provided)</div>
-                <div style={{fontSize:"12px",color:"#6B8FAD"}}>Admin pays for all usage — enter the key they shared with you</div>
+                <div style={{fontSize:"14px",color:T.text,fontWeight:"bold"}}>Use shared key (admin-provided)</div>
+                <div style={{fontSize:"12px",color:T.textSub}}>Admin pays for all usage — enter the key they shared with you</div>
               </div>
             </label>
             {local.useSharedKey&&(
@@ -520,8 +417,8 @@ function SettingsPage({settings, onSave, onClose, isFirstRun, isDark, onToggleTh
                 <input type="checkbox" checked={!!local.platforms[p.key]} onChange={e=>setPlatform(p.key,e.target.checked)} style={{display:"none"}}/>
                 <div style={{width:"28px",height:"28px",borderRadius:"6px",background:p.color,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"12px",flexShrink:0}}>{p.icon}</div>
                 <div style={{flex:1}}>
-                  <div style={{fontSize:"14px",color:"#E2D9C5",fontWeight:"bold"}}>{p.label}</div>
-                  <div style={{fontSize:"12px",color:"#6B8FAD"}}>{p.desc}</div>
+                  <div style={{fontSize:"14px",color:T.text,fontWeight:"bold"}}>{p.label}</div>
+                  <div style={{fontSize:"12px",color:T.textSub}}>{p.desc}</div>
                 </div>
               </label>
             ))}
@@ -530,7 +427,7 @@ function SettingsPage({settings, onSave, onClose, isFirstRun, isDark, onToggleTh
           {/* Email recipient */}
           {local.platforms.email&&(
             <div style={{marginTop:"12px",padding:"14px 16px",background:"rgba(5,150,105,.08)",border:"1px solid #05966933",borderRadius:"10px"}}>
-              <div style={{fontSize:"13px",color:"#E2D9C5",fontWeight:"bold",marginBottom:"8px"}}>✉️ Default Email Recipient (optional)</div>
+              <div style={{fontSize:"13px",color:T.text,fontWeight:"bold",marginBottom:"8px"}}>✉️ Default Email Recipient (optional)</div>
               <input type="email" value={local.emailTo} onChange={e=>set("emailTo",e.target.value)}
                 placeholder="e.g. members@aacc-texas.org"
                 style={inputStyle}/>
@@ -619,6 +516,10 @@ function App() {
   const [showScript,  setShowScript]  = useState(false);
   const [showPaste,   setShowPaste]   = useState(false);
   const [pasteText,   setPasteText]   = useState("");
+  const [recapUrl,    setRecapUrl]    = useState("");
+  const [recapPosts,  setRecapPosts]  = useState(null);
+  const [recapLoading,setRecapLoading]= useState(false);
+  const [recapError,  setRecapError]  = useState(null);
   const [scriptCopied,setScriptCopied]= useState(false);
   const [showSettings,setShowSettings]= useState(false);
   const [isDark, setIsDark] = useState(true);
@@ -750,7 +651,7 @@ function App() {
     if (!settings.setupComplete) { setShowSettings(true); return; }
     setScanning(true); setScanStep("🤖 Searching for events...");
     try {
-      const data=await callClaude([{role:"user",content:`Search for AACC Texas upcoming events. Today is ${TODAY.toISOString().split("T")[0]}. I need events from ${ONE_MONTH_AGO.toISOString().split("T")[0]} onwards from aacc-texas.org/events.html. Return ONLY a JSON array (no markdown). Each object: {"id":"slug-YYYY-MM-DD","title":"","date":"YYYY-MM-DD","starts":"","ends":"","venue":"","address":"","description":"","registration":"Open|Closed|Unknown","url":"https://www.aacc-texas.org/events.html#!event/...","type":"Sundowner|Gala|Conference|Networking|Cultural|Other","imageUrl":null}`}],
+      const data=await callClaude([{role:"user",content:`Search for upcoming events. Today is ${TODAY.toISOString().split("T")[0]}. I need events from ${ONE_MONTH_AGO.toISOString().split("T")[0]} onwards from aacc-texas.org/events.html. Return ONLY a JSON array (no markdown). Each object: {"id":"slug-YYYY-MM-DD","title":"","date":"YYYY-MM-DD","starts":"","ends":"","venue":"","address":"","description":"","registration":"Open|Closed|Unknown","url":"https://www.aacc-texas.org/events.html#!event/...","type":"Sundowner|Gala|Conference|Networking|Cultural|Other","imageUrl":null}`}],
         "Return ONLY a raw JSON array. No markdown. No explanation.", settings);
       const text=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
       const match=text.replace(/```json|```/g,"").trim().match(/\[[\s\S]*\]/);
@@ -781,7 +682,9 @@ function App() {
       return `"${p.key}": "${limits[p.key]||'100-150 words'}"`;
     }).join(",\n  ");
     try {
-      const data=await callClaude([{role:"user",content:`Create social media posts for this AACC Texas event:\n\nTitle: ${event.title}\nDate: ${fmtDate(event.date)}${event.starts?" ("+event.starts+")":""}\nVenue: ${event.venue||"Texas"}${event.address?" — "+event.address:""}\nDescription: ${event.description||"AACC Texas networking event."}\nType: ${event.type}\nRegistration: ${event.registration}\nURL: ${event.url}\n\nWrite posts for these platforms. Return ONLY this JSON (no markdown):\n{\n  ${platformList}\n}\n\nAll posts must include #AACCTexas #AussieTexas. G'day energy!`}],
+      const orgName = settings.orgName || "";
+      const hashtags = settings.hashtags || "";
+      const data=await callClaude([{role:"user",content:`Create social media posts for this event:\n\nTitle: ${event.title}\nDate: ${fmtDate(event.date)}${event.starts?" ("+event.starts+")":""}\nVenue: ${event.venue||""}${event.address?" — "+event.address:""}\nDescription: ${event.description||"Networking event."}\nType: ${event.type}\nRegistration: ${event.registration}\nURL: ${event.url}\n${orgName?"Organisation: "+orgName+"\n":""}\nWrite posts for these platforms. Return ONLY this JSON (no markdown):\n{\n  ${platformList}\n}\n${hashtags?"Include these hashtags where appropriate: "+hashtags+"\n":""}Keep the tone professional, engaging, and appropriate for the platform.`}],
         "Return ONLY valid JSON. No markdown fences. No explanation.", settings);
       const text=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
       const match=text.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/);
@@ -826,7 +729,30 @@ function App() {
   const withPosts = events.filter(e=>posts[e.id]);
 
   // ── Settings page ──────────────────────────────────────────────────────────
-  const T = isDark ? DARK : LIGHT;
+const generateRecap = async () => {
+    if (!recapUrl.trim()) return;
+    setRecapLoading(true); setRecapError(null); setRecapPosts(null);
+    const platformList = activePlatforms.map(p=>{
+      const limits={linkedin:"150-200 words, professional tone, hashtags",twitter:"MAX 260 CHARS, punchy, 2-3 hashtags",facebook:"100-150 words, warm and friendly",instagram:"150-200 words, emojis, 10-15 hashtags at end",email:"200-300 words, recap/thank-you style",file:"200-300 words, full recap"};
+      return '"'+p.key+'": "'+( limits[p.key]||"100-150 words")+'"';
+    }).join(",\n  ");
+    const orgName = settings.orgName || "";
+    const hashtags = settings.hashtags || "";
+    try {
+      const data = await callClaude([{role:"user",content:"Write retrospective social media posts recapping this past event. The event page URL is: "+recapUrl+"\n\nWrite posts for these platforms — use past tense, highlight what made it great, thank attendees.\n{\n  "+platformList+"\n}\n"+(orgName?"Organisation: "+orgName+"\n":"")+(hashtags?"Include hashtags: "+hashtags+"\n":"")+"Return ONLY valid JSON, no markdown."}],
+        "Return ONLY valid JSON. No markdown fences. No explanation.", settings);
+      const text=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
+      const match=text.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/);
+      if(!match) throw new Error("Could not parse response");
+      setRecapPosts(JSON.parse(match[0]));
+    } catch(e) {
+      if(e.message==="NO_API_KEY"){setShowSettings(true);}
+      else setRecapError(e.message);
+    }
+    setRecapLoading(false);
+  };
+
+    const T = isDark ? DARK : LIGHT;
 
   if (showSettings) {
     return (
@@ -903,7 +829,7 @@ function App() {
         {[{icon:"📋",val:events.length,label:"Total"},{icon:"🗓️",val:upcoming.length,label:"Upcoming"},{icon:"✅",val:past.length,label:"Past"},{icon:"✍️",val:withPosts.length,label:"Posts Ready"}].map(s=>(
           <div key={s.label} style={{flex:1,padding:"12px 8px",textAlign:"center",background:T.stats,borderRight:"1px solid #1E3A5F"}}>
             <div style={{fontSize:"22px",fontWeight:"bold",color:"#FFCD00"}}>{s.icon} {s.val}</div>
-            <div style={{fontSize:"10px",color:"#6B8FAD",letterSpacing:"1px",textTransform:"uppercase",marginTop:"2px"}}>{s.label}</div>
+            <div style={{fontSize:"10px",color:T.textSub,letterSpacing:"1px",textTransform:"uppercase",marginTop:"2px"}}>{s.label}</div>
           </div>
         ))}
       </div>
@@ -948,7 +874,7 @@ function App() {
 
         {/* Tabs */}
         <div style={{display:"flex",gap:"2px",marginBottom:"20px",borderBottom:"1px solid #1E3A5F"}}>
-          {[{id:"upcoming",label:`🗓️ Upcoming (${upcoming.length})`},{id:"past",label:`✅ Past (${past.length})`},{id:"posts",label:`✍️ Posts (${withPosts.length})`}].map(t=>(
+          {[{id:"upcoming",label:`🗓️ Upcoming (${upcoming.length})`},{id:"past",label:`✅ Past (${past.length})`},{id:"posts",label:`✍️ Posts (${withPosts.length})`},{id:"recap",label:"🔁 Recap"}].map(t=>(
             <button key={t.id} onClick={()=>setActiveTab(t.id)} style={{background:activeTab===t.id?"rgba(0,48,143,.4)":"transparent",color:activeTab===t.id?"#FFCD00":"#6B8FAD",border:"none",borderBottom:activeTab===t.id?"2px solid #FFCD00":"2px solid transparent",padding:"10px 20px",cursor:"pointer",fontSize:"13px",fontWeight:activeTab===t.id?"bold":"normal",transition:"all .2s"}}>{t.label}</button>
           ))}
         </div>
@@ -979,6 +905,53 @@ function App() {
             onAddToQueue={(pKey)=>addToQueue(ev,pKey)} onIsQueued={(pKey)=>isQueued(ev.id,pKey)}
           />)
         )}
+
+        {activeTab==="recap"&&(
+          <div style={{background:T.bgCard,border:"1px solid "+T.border,borderRadius:"14px",padding:"24px",marginBottom:"16px"}}>
+            <div style={{fontWeight:"bold",color:T.gold,fontSize:"16px",marginBottom:"6px"}}>🔁 Retrospective Post Generator</div>
+            <div style={{fontSize:"13px",color:T.textSub,marginBottom:"20px",lineHeight:"1.6"}}>Paste any past event URL below. Claude will write social media recap posts in past tense — great for thanking attendees and sharing highlights.</div>
+            <div style={{display:"flex",gap:"10px",flexWrap:"wrap",marginBottom:"16px"}}>
+              <input
+                type="url"
+                value={recapUrl}
+                onChange={e=>setRecapUrl(e.target.value)}
+                placeholder="https://your-org.com/events/past-event"
+                style={{flex:1,minWidth:"200px",background:T.bgCardAlt,border:"1px solid "+T.border,borderRadius:"8px",padding:"10px 14px",color:T.text,fontSize:"13px",outline:"none"}}
+              />
+              <button
+                onClick={generateRecap}
+                disabled={recapLoading||!recapUrl.trim()}
+                style={{background:recapLoading?"#1E3A5F":"linear-gradient(135deg,#FFCD00,#E6B800)",color:recapLoading?"#6B8FAD":"#001A4D",border:"none",borderRadius:"8px",padding:"10px 20px",cursor:recapLoading||!recapUrl.trim()?"not-allowed":"pointer",fontWeight:"bold",fontSize:"13px",whiteSpace:"nowrap"}}
+              >
+                {recapLoading?"⏳ Generating…":"✍️ Generate Recap Posts"}
+              </button>
+            </div>
+            {recapError&&<div style={{background:"rgba(127,29,29,.3)",border:"1px solid #F87171",borderRadius:"8px",padding:"12px 16px",color:"#FCA5A5",fontSize:"13px",marginBottom:"16px"}}>❌ {recapError}</div>}
+            {recapPosts&&(
+              <div>
+                <div style={{fontWeight:"bold",color:T.gold,fontSize:"14px",marginBottom:"12px"}}>📋 Generated Recap Posts</div>
+                {activePlatforms.map(p=>{
+                  const text=recapPosts[p.key]||"";
+                  if(!text) return null;
+                  return (
+                    <div key={p.key} style={{background:T.bgCardAlt,border:"1px solid "+T.border,borderRadius:"10px",marginBottom:"12px",overflow:"hidden"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px",borderBottom:"1px solid "+T.border}}>
+                        <span style={{fontWeight:"bold",color:p.color||T.accent,fontSize:"13px"}}>{p.icon} {p.label}</span>
+                        <div style={{display:"flex",gap:"8px"}}>
+                          <span style={{fontSize:"11px",color:T.textSub}}>{text.length} chars</span>
+                          <button onClick={()=>navigator.clipboard.writeText(text)} style={{background:"none",border:"1px solid "+T.border,borderRadius:"5px",padding:"3px 10px",cursor:"pointer",color:T.textSub,fontSize:"11px"}}>Copy</button>
+                        </div>
+                      </div>
+                      <div style={{padding:"12px 16px",fontSize:"13px",color:T.text,lineHeight:"1.6",whiteSpace:"pre-wrap"}}>{text}</div>
+                    </div>
+                  );
+                })}
+                <button onClick={()=>{setRecapPosts(null);setRecapUrl("");}} style={{background:"none",border:"1px solid "+T.border,borderRadius:"7px",padding:"7px 14px",cursor:"pointer",color:T.textSub,fontSize:"12px",marginTop:"4px"}}>🗑️ Clear</button>
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
 
       <style>{`
@@ -1173,16 +1146,16 @@ function BatchConfirmModal({queue, events, settings, onUpdateText, onRemove, onC
             const status = results[key];
             const charOver = item.platformKey==="twitter" && item.text.length > 280;
             return (
-              <div key={key} style={{background:`rgba(0,0,0,.3)`,border:`1px solid ${status==="done"?"#4ADE80":status==="error"?"#F87171":pCfg?.color+"33"}`,borderRadius:"12px",overflow:"hidden"}}>
+              <div key={key} style={{background:`rgba(0,0,0,.3)`,border:`1px solid ${status==="done"?"#4ADE80":status==="error"?"#F87171":(pCfg&&pCfg.color)+"33"}`,borderRadius:"12px",overflow:"hidden"}}>
                 {/* Item header */}
-                <div style={{padding:"10px 16px",background:pCfg?.color+"18",display:"flex",alignItems:"center",gap:"10px",borderBottom:`1px solid ${pCfg?.color}22`}}>
-                  <div style={{width:"24px",height:"24px",borderRadius:"6px",background:pCfg?.color,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"11px",flexShrink:0}}>{pCfg?.icon}</div>
+                <div style={{padding:"10px 16px",background:(pCfg&&pCfg.color)+"18",display:"flex",alignItems:"center",gap:"10px",borderBottom:`1px solid ${(pCfg&&pCfg.color)}22`}}>
+                  <div style={{width:"24px",height:"24px",borderRadius:"6px",background:(pCfg&&pCfg.color),color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"11px",flexShrink:0}}>{(pCfg&&pCfg.icon)}</div>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:"13px",fontWeight:"bold",color:pCfg?.color}}>{pCfg?.label}</div>
+                    <div style={{fontSize:"13px",fontWeight:"bold",color:(pCfg&&pCfg.color)}}>{(pCfg&&pCfg.label)}</div>
                     <div style={{fontSize:"11px",color:"#6B8FAD",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.eventTitle} · {fmtDate(item.eventDate)}</div>
                   </div>
                   <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
-                    <span style={{fontSize:"11px",color:charOver?"#F87171":item.text.length>pCfg?.charLimit*0.9?"#FFCD00":"#4A6A8A"}}>{item.text.length}</span>
+                    <span style={{fontSize:"11px",color:charOver?"#F87171":item.text.length>(pCfg&&pCfg.charLimit)*0.9?"#FFCD00":"#4A6A8A"}}>{item.text.length}</span>
                     {status==="done"&&<span style={{fontSize:"13px",color:"#4ADE80"}}>✅ Posted</span>}
                     {status==="error"&&<span style={{fontSize:"13px",color:"#F87171"}}>❌ Error</span>}
                     {!status&&!posting&&<button onClick={()=>remove(item.eventId,item.platformKey)} style={{background:"transparent",color:"#4A6A8A",border:"none",cursor:"pointer",fontSize:"16px",lineHeight:1,padding:"2px"}}>×</button>}
@@ -1195,7 +1168,7 @@ function BatchConfirmModal({queue, events, settings, onUpdateText, onRemove, onC
                     onChange={e=>updateText(item.eventId, item.platformKey, e.target.value)}
                     disabled={posting}
                     rows={4}
-                    style={{width:"100%",background:"transparent",border:"none",borderBottom:charOver?`1px solid #F8717133`:"none",color:"#C8D8E8",fontSize:"12px",lineHeight:"1.6",padding:"12px 16px",resize:"vertical",fontFamily:"Georgia,serif",boxSizing:"border-box",opacity:posting?.6:1}}
+                    style={{width:"100%",background:"transparent",border:"none",borderBottom:charOver?`1px solid #F8717133`:"none",color:"#C8D8E8",fontSize:"12px",lineHeight:"1.6",padding:"12px 16px",resize:"vertical",fontFamily:"Georgia,serif",boxSizing:"border-box",opacity:posting?0.6:1}}
                   />
                 )}
                 {charOver&&!status&&<div style={{padding:"4px 16px 8px",fontSize:"11px",color:"#F87171"}}>⚠️ Over X/Twitter 280 char limit by {item.text.length-280}</div>}
@@ -1238,7 +1211,7 @@ function LinkedInPreview({text}) {
       <div style={{padding:"12px 16px",display:"flex",gap:"10px",alignItems:"center"}}>
         <div style={{width:"48px",height:"48px",borderRadius:"50%",background:"linear-gradient(135deg,#FFCD00,#00205B)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:"bold",fontSize:"16px"}}>A</div>
         <div>
-          <div style={{fontWeight:"600",color:"#000",fontSize:"14px"}}>AACC Texas</div>
+          <div style={{fontWeight:"600",color:"#000",fontSize:"14px"}}>Your Org</div>
           <div style={{color:"#666",fontSize:"12px"}}>Australian American Chamber of Commerce</div>
           <div style={{color:"#666",fontSize:"11px"}}>Now • 🌐</div>
         </div>
@@ -1261,7 +1234,7 @@ function TwitterPreview({text}) {
         <div style={{width:"40px",height:"40px",borderRadius:"50%",background:"linear-gradient(135deg,#FFCD00,#00205B)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:"bold"}}>A</div>
         <div style={{flex:1}}>
           <div style={{display:"flex",gap:"6px",alignItems:"baseline",marginBottom:"4px"}}>
-            <span style={{fontWeight:"700",color:"#0F1419",fontSize:"15px"}}>AACC Texas</span>
+            <span style={{fontWeight:"700",color:"#0F1419",fontSize:"15px"}}>Your Org</span>
             <span style={{color:"#536471",fontSize:"15px"}}>@AACCTexas · now</span>
           </div>
           <div style={{fontSize:"15px",color:"#0F1419",lineHeight:"1.6",whiteSpace:"pre-wrap"}}>{text}</div>
@@ -1286,7 +1259,7 @@ function FacebookPreview({text}) {
       <div style={{padding:"12px 16px",display:"flex",gap:"10px",alignItems:"center"}}>
         <div style={{width:"40px",height:"40px",borderRadius:"50%",background:"linear-gradient(135deg,#FFCD00,#00205B)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:"bold"}}>A</div>
         <div>
-          <div style={{fontWeight:"600",color:"#050505",fontSize:"14px"}}>AACC Texas</div>
+          <div style={{fontWeight:"600",color:"#050505",fontSize:"14px"}}>Your Org</div>
           <div style={{color:"#65676B",fontSize:"12px",display:"flex",alignItems:"center",gap:"4px"}}>Just now · <span>🌐</span></div>
         </div>
         <div style={{marginLeft:"auto",color:"#65676B",fontSize:"20px",cursor:"pointer"}}>···</div>
@@ -1346,12 +1319,12 @@ function EventCard({T,event,post,editedPost,isPast,isExpanded,isGenerating,onGen
   const color=TYPE_COLOR[event.type]||TYPE_COLOR.Other;
   const hasEdits = post && editedPost && (activePlatforms||ALL_PLATFORMS).some(p=> editedPost[p.key] && editedPost[p.key]!==post[p.key]);
   return (
-    <div style={{background:isPast?"rgba(0,0,0,.15)":"rgba(0,20,60,.5)",border:`1px solid ${isPast?"#162840":"#1E3A5F"}`,borderLeft:`4px solid ${isPast?"#2A4A6A":color}`,borderRadius:"12px",marginBottom:"10px",opacity:isPast?.72:1}}>
+    <div style={{background:isPast?"rgba(0,0,0,.15)":"rgba(0,20,60,.5)",border:`1px solid ${isPast?"#162840":"#1E3A5F"}`,borderLeft:`4px solid ${isPast?"#2A4A6A":color}`,borderRadius:"12px",marginBottom:"10px",opacity:isPast?0.72:1}}>
       <div style={{padding:"16px 20px",display:"flex",alignItems:"flex-start",gap:"12px",flexWrap:"wrap"}}>
         {/* Date badge */}
         <div style={{flexShrink:0,background:T?T.bgCard:"rgba(0,48,143,.4)",border:"1px solid "+(T?T.border:"#1E3A5F"),borderRadius:"8px",padding:"8px 12px",textAlign:"center",minWidth:"52px"}}>
           <div style={{fontSize:"10px",color:"#FFCD00",textTransform:"uppercase",letterSpacing:"1px"}}>{event.date?localDate(event.date).toLocaleDateString("en-US",{month:"short"}):"—"}</div>
-          <div style={{fontSize:"22px",fontWeight:"bold",color:"#E2D9C5",lineHeight:1}}>{event.date?localDate(event.date).getDate():"—"}</div>
+          <div style={{fontSize:"22px",fontWeight:"bold",color:(T?T.text:"#E2D9C5"),lineHeight:1}}>{event.date?localDate(event.date).getDate():"—"}</div>
         </div>
         {/* Info */}
         <div style={{flex:1,minWidth:"180px"}}>
@@ -1363,17 +1336,17 @@ function EventCard({T,event,post,editedPost,isPast,isExpanded,isGenerating,onGen
             {event.registration==="Closed"&&<span style={{background:"#7F1D1D22",color:"#F87171",fontSize:"10px",padding:"2px 8px",borderRadius:"4px"}}>🔒 Reg. Closed</span>}
             {event.registration==="Open"&&<span style={{background:"#14532D22",color:"#4ADE80",fontSize:"10px",padding:"2px 8px",borderRadius:"4px"}}>✅ Reg. Open</span>}
           </div>
-          <div style={{fontSize:"17px",fontWeight:"bold",color:"#E2D9C5",lineHeight:"1.3"}}>{event.title}</div>
-          <div style={{fontSize:"12px",color:"#6B8FAD",marginTop:"4px",lineHeight:"1.5"}}>
+          <div style={{fontSize:"17px",fontWeight:"bold",color:(T?T.text:"#E2D9C5"),lineHeight:"1.3"}}>{event.title}</div>
+          <div style={{fontSize:"12px",color:(T?T.textSub:"#6B8FAD"),marginTop:"4px",lineHeight:"1.5"}}>
             {event.starts&&<span>⏰ {event.starts}</span>}
             {event.venue&&<span> · 📍 {event.venue}</span>}
             {event.address&&<div style={{marginTop:"2px",fontSize:"11px"}}>📮 {event.address}</div>}
           </div>
-          {event.description&&<div style={{fontSize:"12px",color:"#93B4D4",marginTop:"6px",lineHeight:"1.5",maxHeight:"3.5em",overflow:"hidden"}}>{event.description.substring(0,200)}{event.description.length>200?"…":""}</div>}
-          {event.url&&<a href={event.url} target="_blank" rel="noopener noreferrer" style={{fontSize:"11px",color:"#3B82F6",marginTop:"4px",display:"inline-block"}}>🔗 View on AACC Texas →</a>}
+          {event.description&&<div style={{fontSize:"12px",color:(T?T.textSub:"#93B4D4"),marginTop:"6px",lineHeight:"1.5",maxHeight:"3.5em",overflow:"hidden"}}>{event.description.substring(0,200)}{event.description.length>200?"…":""}</div>}
+          {event.url&&<a href={event.url} target="_blank" rel="noopener noreferrer" style={{fontSize:"11px",color:"#3B82F6",marginTop:"4px",display:"inline-block"}}>🔗 View event →</a>}
         </div>
         {/* Event image thumbnail */}
-        <div style={{flexShrink:0,width:"90px",height:"68px",borderRadius:"8px",overflow:"hidden",border:"1px solid #1E3A5F"}}>
+        <div style={{flexShrink:0,width:"90px",height:"68px",borderRadius:"8px",overflow:"hidden",border:"1px solid "+(T?T.border:"#1E3A5F")}}>
             <img src={event.imageUrl} alt={event.title} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
           </div>
         {/* Actions */}
@@ -1388,7 +1361,7 @@ function EventCard({T,event,post,editedPost,isPast,isExpanded,isGenerating,onGen
 
       {/* Expanded editor */}
       {isExpanded&&post&&(
-        <div style={{borderTop:"1px solid #1E3A5F",padding:"16px 20px"}}>
+        <div style={{borderTop:"1px solid "+(T?T.border:"#1E3A5F"),padding:"16px 20px"}}>
           {/* Full event image */}
           <img src={event.imageUrl} alt={event.title} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
           <PostEditor T={T} post={post} editedPost={editedPost} eventId={event.id} event={event} onUpdateText={onUpdateText} onSaveEdits={onSaveEdits} onOpenModal={onOpenModal} onAddToQueue={onAddToQueue} onIsQueued={onIsQueued}/>
@@ -1407,7 +1380,7 @@ function PostCard({T,event,post,editedPost,onUpdateText,onSaveEdits,onOpenModal,
       <div style={{background:T?T.bgCardAlt:"rgba(0,48,143,.3)",padding:"12px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"8px"}}>
         <div>
           <div style={{fontWeight:"bold",color:"#FFCD00",fontSize:"15px"}}>{event.title}</div>
-          <div style={{fontSize:"12px",color:"#6B8FAD"}}>📅 {fmtDate(event.date)}</div>
+          <div style={{fontSize:"12px",color:(T?T.textSub:"#6B8FAD")}}>📅 {fmtDate(event.date)}</div>
         </div>
         <div style={{fontSize:"11px",color:"#4A6A8A"}}>Generated {new Date(post.generatedAt).toLocaleDateString()}</div>
       </div>
