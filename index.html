@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-  <title>Social Media Assistant v1.4</title>
+  <title>Social Media Assistant v1.5</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -34,7 +34,7 @@ const {useState,useEffect,useCallback,useRef}=React;
 const DARK  = { bg:"#080F1E", bgCard:"rgba(0,20,60,.6)", bgCardAlt:"rgba(0,0,0,.3)", stats:"rgba(0,0,0,.2)", text:"#F0F4FF", textSub:"#6B8FAD", gold:"#FFCD00", border:"#1E3A5F", accent:"#3B82F6", warning:"rgba(0,0,0,.5)" };
 const LIGHT = { bg:"#E8EEF5", bgCard:"rgba(255,255,255,.85)", bgCardAlt:"rgba(255,255,255,.6)", stats:"rgba(255,255,255,.7)", text:"#1a202c", textSub:"#4a5568", gold:"#B7791F", border:"#BED0E0", accent:"#3182CE", warning:"rgba(0,0,0,.08)" };
 const SK_THEME = "sma-theme-v1";
-const VERSION = "v1.4";
+const VERSION = "v1.5";
 
 const SK_EVENTS = "aacc-events-v3";
 const SK_POSTS  = "aacc-posts-v3";
@@ -617,7 +617,7 @@ function App() {
 
   // ── Queue helpers ──────────────────────────────────────────────────────────
   const addToQueue = (event, platformKey) => {
-    const text = (editedPosts[event.id]?.[platformKey]) || (posts[event.id]?.[platformKey]) || "";
+    const text = (editedPosts[event.id]&&editedPosts[event.id][platformKey])||(posts[event.id]&&posts[event.id][platformKey])||"";
     setQueue(prev => {
       const filtered = prev.filter(q => !(q.eventId===event.id && q.platformKey===platformKey));
       return [...filtered, {eventId:event.id, platformKey, text, eventTitle:event.title, eventDate:event.date}];
@@ -703,8 +703,7 @@ function App() {
       setEditedPosts(prev=>({...prev,[event.id]:Object.fromEntries(activePlatforms.map(p=>[p.key,parsed[p.key]||""]))}));
       setExpandedId(event.id);
       toast("Posts generated! ✍️");
-      const epForExport={...editedPosts,[event.id]:Object.fromEntries(activePlatforms.map(p=>[p.key,parsed[p.key]||""]))};
-      exportMarkdown([event], newPosts, epForExport);
+
     }catch(e){
       if(e.message==="NO_API_KEY"){setShowSettings(true);}
       else toast("Error: "+e.message,"err");
@@ -721,7 +720,7 @@ function App() {
     await savePosts(newPosts); toast("Edits saved ✓");
   };
   const openModal=(event,platformKey)=>{
-    const text=(editedPosts[event.id]?.[platformKey])||(posts[event.id]?.[platformKey])||"";
+    const text=(editedPosts[event.id]&&editedPosts[event.id][platformKey])||(posts[event.id]&&posts[event.id][platformKey])||"";
     setModal({event,platformKey,text,editText:text});
   };
   const deleteEvent=async(id)=>{
@@ -741,14 +740,14 @@ const generateRecap = async () => {
     if (!recapUrl.trim()) return;
     setRecapLoading(true); setRecapError(null); setRecapPosts(null);
     const platformList = activePlatforms.map(p=>{
-      const limits={linkedin:"150-200 words, professional tone, hashtags",twitter:"MAX 260 CHARS, punchy, 2-3 hashtags",facebook:"100-150 words, warm and friendly",instagram:"150-200 words, emojis, 10-15 hashtags at end",email:"200-300 words, recap/thank-you style",file:"200-300 words, full recap"};
-      return '"'+p.key+'": "'+( limits[p.key]||"100-150 words")+'"';
+      const limits={linkedin:"max 200 words, professional, 2-3 hashtags",twitter:"MAX 260 CHARS — concise, 1-2 hashtags",facebook:"max 150 words, warm and friendly",instagram:"max 200 words, emojis, 5-8 hashtags at end",email:"max 250 words, brief thank-you recap style",file:"max 300 words, full recap summary"};
+      return '"'+p.key+'": "'+( limits[p.key]||"max 150 words")+'"';
     }).join(",\n  ");
     const orgName = settings.orgName || "";
     const hashtags = settings.hashtags || "";
     try {
-      const data = await callClaude([{role:"user",content:"Write retrospective social media posts recapping this past event. The event page URL is: "+recapUrl+"\n\nWrite posts for these platforms — use past tense, highlight what made it great, thank attendees.\n{\n  "+platformList+"\n}\n"+(orgName?"Organisation: "+orgName+"\n":"")+(hashtags?"Include hashtags: "+hashtags+"\n":"")+"Return ONLY valid JSON, no markdown."}],
-        "Return ONLY valid JSON. No markdown fences. No explanation.", settings);
+      const data = await callClaude([{role:"user",content:"Write SHORT retrospective social media posts recapping this past event. URL: "+recapUrl+"\n\nBe brief and punchy. Past tense. Thank attendees in one sentence max. Strict word/char limits below.\n{\n  "+platformList+"\n}\n"+(orgName?"Organisation: "+orgName+"\n":"")+(hashtags?"Hashtags to include: "+hashtags+"\n":"")+"Return ONLY valid JSON, no markdown."}],
+        "Return ONLY valid JSON. No markdown fences. No explanation. Strictly respect the word/character limits.", settings);
       const text=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
       const match=text.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/);
       if(!match) throw new Error("Could not parse response");
@@ -804,7 +803,7 @@ const generateRecap = async () => {
       <div style={{position:"relative",zIndex:1,background:"linear-gradient(135deg,#00205B,#001540)",borderBottom:"2px solid #FFCD00",padding:"18px 28px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"12px"}}>
         <div style={{display:"flex",alignItems:"center",gap:"14px"}}>
           <div>
-            <div style={{display:"flex",alignItems:"baseline",gap:"8px"}}><div style={{fontSize:"16px",fontWeight:"bold",color:"#FFCD00",letterSpacing:"1px"}}>Social Media Assistant</div><div style={{fontSize:"10px",color:"#6B8FAD",letterSpacing:"1px",fontFamily:"monospace",opacity:0.8}}>{VERSION}</div></div>
+            <div style={{display:"flex",alignItems:"baseline",gap:"8px",cursor:"pointer"}} onClick={()=>{setShowSettings(false);setActiveTab("upcoming");}}><div style={{fontSize:"16px",fontWeight:"bold",color:"#FFCD00",letterSpacing:"1px"}}>Social Media Assistant</div><div style={{fontSize:"10px",color:"#6B8FAD",letterSpacing:"1px",fontFamily:"monospace",opacity:0.8}}>{VERSION}</div></div>
             <div style={{fontSize:"11px",color:"#93B4D4",letterSpacing:"2px",textTransform:"uppercase",marginTop:"2px"}}>Event 
           </div>
         </div>
@@ -820,6 +819,7 @@ const generateRecap = async () => {
             🗂️ Queue{queue.length>0&&<span style={{background:"#4ADE80",color:"#001A4D",borderRadius:"10px",padding:"1px 7px",fontSize:"11px",fontWeight:"bold"}}>{queue.length}</span>}
           </button>
           <button onClick={toggleTheme} style={{background:"none",border:"none",cursor:"pointer",fontSize:"18px",padding:"6px 10px",lineHeight:1}} title={isDark?"Light mode":"Dark mode"}>{isDark?"☀️":"🌙"}</button>
+          <a href="mailto:andycon@gmail.com?subject=Social Media Assistant — Feedback&body=Thank you for your feedback, we will work to improve the app!%0A%0APlease include screenshots if they help support your comment.%0A%0A--- Your feedback below ---" style={{background:"rgba(255,255,255,.06)",color:"#93B4D4",border:"1px solid #1E3A5F",borderRadius:"7px",padding:"7px 14px",cursor:"pointer",fontSize:"13px",textDecoration:"none",display:"inline-block"}} title="Send feedback">💬 Feedback</a>
           <button onClick={()=>setShowSettings(true)} style={{background:"rgba(255,255,255,.06)",color:"#93B4D4",border:"1px solid #1E3A5F",borderRadius:"7px",padding:"7px 14px",cursor:"pointer",fontSize:"13px"}}>⚙️ Settings</button>
         </div>
       </div>
@@ -1138,7 +1138,9 @@ function BatchConfirmModal({queue, events, settings, onUpdateText, onRemove, onC
         <div style={{padding:"18px 24px",borderBottom:"1px solid #1E3A5F",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div>
             <div style={{fontWeight:"bold",color:"#FFCD00",fontSize:"17px"}}>🗂️ Post Queue — {localQueue.length} item{localQueue.length!==1?"s":""}</div>
-            <div style={{fontSize:"12px",color:"#6B8FAD",marginTop:"3px"}}>Review and edit each post, then confirm all at once.</div>
+            <div style={{fontSize:"12px",color:"#6B8FAD",marginTop:"3px",lineHeight:"1.6"}}>
+              Add posts to the queue from any event card using the <strong style={{color:"#93B4D4"}}>+ Queue</strong> button. Review and edit each post here, then click <strong style={{color:"#93B4D4"}}>Post All</strong> to open them for posting — each platform opens a pre-filled compose window you confirm manually.
+            </div>
           </div>
           {!posting&&<button onClick={onClose} style={{background:"transparent",color:"#6B8FAD",border:"none",cursor:"pointer",fontSize:"22px",lineHeight:1}}>×</button>}
         </div>
@@ -1581,7 +1583,7 @@ function ExportModal({events, posts, editedPosts, onClose, toast}) {
                       <div style={{fontSize:"11px",color:"#6B8FAD"}}>{fmtDate(ev.date)}</div>
                     </div>
                     <div style={{fontSize:"11px",color:"#4ADE80",flexShrink:0}}>
-                      {(activePlatforms||ALL_PLATFORMS).filter(p=>posts[ev.id]?.[p.key]).length} platforms
+                      {(activePlatforms||ALL_PLATFORMS).filter(p=>(posts[ev.id]&&posts[ev.id][p.key])).length} platforms
                     </div>
                   </label>
                 ))}
