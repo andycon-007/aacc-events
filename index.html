@@ -11,7 +11,7 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-    body { background:#080F1E; font-family:Georgia,serif; }
+    body { background:#F2F2F7; font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif; margin:0; }
     #root.has-banner { padding-top: 56px; }
 
     /* Mobile tweaks */
@@ -31,10 +31,43 @@ const {useState,useEffect,useCallback,useRef}=React;
 
 // ── Storage keys ──────────────────────────────────────────────────────────────
 // ── Theme ──────────────────────────────────────────────────────────────────────
-const DARK  = { bg:"#080F1E", bgCard:"rgba(0,20,60,.6)", bgCardAlt:"rgba(0,0,0,.3)", stats:"rgba(0,0,0,.2)", text:"#F0F4FF", textSub:"#6B8FAD", gold:"#FFCD00", border:"#1E3A5F", accent:"#3B82F6", warning:"rgba(0,0,0,.5)" };
-const LIGHT = { bg:"#E8EEF5", bgCard:"rgba(255,255,255,.85)", bgCardAlt:"rgba(255,255,255,.6)", stats:"rgba(255,255,255,.7)", text:"#1a202c", textSub:"#4a5568", gold:"#B7791F", border:"#BED0E0", accent:"#3182CE", warning:"rgba(0,0,0,.08)" };
+// ── Theme tokens: Option B "Liquid Light" ────────────────────────────────────
+const DARK  = {
+  bg:"#1C1C1E", bgPage:"#000000",
+  bgCard:"#2C2C2E", bgCardAlt:"#3A3A3C",
+  bgHero:"linear-gradient(160deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%)",
+  stats:"#2C2C2E",
+  text:"#F2F2F7", textSub:"#98989D", textHero:"#FFFFFF",
+  gold:"#FFD60A", accent:"#0A84FF", accentHover:"#409CFF",
+  border:"rgba(255,255,255,.1)", borderCard:"rgba(255,255,255,.08)",
+  badge:"rgba(255,255,255,.06)",
+  modalBg:"#2C2C2E", modalOverlay:"rgba(0,0,0,.7)",
+  warning:"rgba(255,69,58,.15)", warningBorder:"rgba(255,69,58,.4)",
+  success:"rgba(52,199,89,.15)", successText:"#30D158",
+  tabActive:"#0A84FF", tabActiveBorder:"#0A84FF",
+  btnPrimary:"#0A84FF", btnPrimaryText:"#fff",
+  btnGhost:"rgba(255,255,255,.08)", btnGhostText:"#F2F2F7", btnGhostBorder:"rgba(255,255,255,.15)",
+  scanCard:"#2C2C2E",
+};
+const LIGHT = {
+  bg:"#F2F2F7", bgPage:"#F2F2F7",
+  bgCard:"#FFFFFF", bgCardAlt:"#F2F2F7",
+  bgHero:"linear-gradient(160deg,#0071E3 0%,#0077ED 50%,#30B0C7 100%)",
+  stats:"#FFFFFF",
+  text:"#1D1D1F", textSub:"#6E6E73", textHero:"#FFFFFF",
+  gold:"#B7791F", accent:"#0071E3", accentHover:"#0077ED",
+  border:"rgba(0,0,0,.1)", borderCard:"rgba(0,0,0,.06)",
+  badge:"rgba(0,0,0,.04)",
+  modalBg:"#FFFFFF", modalOverlay:"rgba(0,0,0,.4)",
+  warning:"rgba(255,69,58,.08)", warningBorder:"rgba(255,69,58,.3)",
+  success:"rgba(52,199,89,.1)", successText:"#1D7A3A",
+  tabActive:"#0071E3", tabActiveBorder:"#0071E3",
+  btnPrimary:"#0071E3", btnPrimaryText:"#fff",
+  btnGhost:"rgba(0,0,0,.04)", btnGhostText:"#1D1D1F", btnGhostBorder:"rgba(0,0,0,.12)",
+  scanCard:"#FFFFFF",
+};
 const SK_THEME = "sma-theme-v1";
-const VERSION = "v1.8";
+const VERSION = "v1.9";
 
 const SK_EVENTS = "aacc-events-v3";
 const SK_POSTS  = "aacc-posts-v3";
@@ -344,25 +377,25 @@ function SettingsPage({settings, onSave, onClose, isFirstRun, isDark, onToggleTh
   ];
 
   return (
-    <div style={{minHeight:"100vh",background:T.bg,fontFamily:"Georgia,'Times New Roman',serif",color:T.text,paddingBottom:"80px"}}>
+    <div style={{minHeight:"100vh",background:T.bg,fontFamily:"-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif",color:T.text,paddingBottom:"80px"}}>
       {/* Header */}
-      <div style={{background:"linear-gradient(135deg,#00205B,#001540)",borderBottom:"2px solid #FFCD00",padding:"18px 28px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:"12px"}}>
+      <div style={{background:T.bgCard,borderBottom:"0.5px solid "+T.border,padding:"14px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:"12px",boxShadow:isDark?"none":"0 1px 3px rgba(0,0,0,.06)"}}>
         <div style={{display:"flex",alignItems:"center",gap:"14px"}}>
           <div>
-            <div style={{fontSize:"18px",fontWeight:"bold",color:"#FFCD00",letterSpacing:"2px",textTransform:"uppercase"}}><span>Settings</span> <span style={{fontSize:"10px",fontFamily:"monospace",opacity:0.6,verticalAlign:"middle",letterSpacing:"normal",textTransform:"none"}}>{VERSION}</span></div>
-            <div style={{fontSize:"11px",color:T.textSub,letterSpacing:"1px",textTransform:"uppercase",marginTop:"2px"}}>{isFirstRun?"Welcome — let's get you set up":"Configure your posting preferences"}</div>
+            <div style={{fontSize:"16px",fontWeight:"700",color:T.text,letterSpacing:"-.3px"}}><span style={{color:T.accent}}>Social Media</span> <span style={{color:T.text}}>Settings</span> <span style={{fontSize:"10px",fontFamily:"monospace",opacity:0.6,verticalAlign:"middle",letterSpacing:"normal",textTransform:"none"}}>{VERSION}</span></div>
+            <div style={{fontSize:"12px",color:T.textSub,marginTop:"2px"}}>{isFirstRun?"Welcome — let's get you set up":"Configure your posting preferences"}</div>
           </div>
         </div>
         {onToggleTheme&&<button onClick={onToggleTheme} style={{background:"none",border:"none",cursor:"pointer",fontSize:"18px",padding:"6px 10px",lineHeight:1}}>{isDark?"☀️":"🌙"}</button>}
         {!isFirstRun&&onClose&&(
-          <button onClick={onClose} style={{background:"transparent",color:T.textSub,border:"1px solid "+T.border,borderRadius:"8px",padding:"8px 16px",cursor:"pointer",fontSize:"13px"}}>← Back to App</button>
+          <button onClick={onClose} style={{background:T.btnGhost,color:T.btnGhostText,border:"0.5px solid "+T.btnGhostBorder,borderRadius:"20px",padding:"7px 16px",cursor:"pointer",fontSize:"13px"}}>← Back to App</button>
         )}
       </div>
 
       <div style={{maxWidth:"700px",margin:"0 auto",padding:"28px 16px",display:"flex",flexDirection:"column",gap:"24px"}}>
 
         {isFirstRun&&(
-          <div style={{background:"rgba(255,205,0,.08)",border:"1px solid #FFCD0044",borderRadius:"12px",padding:"16px 20px",fontSize:"14px",color:"#FFCD00",lineHeight:"1.7"}}>
+          <div style={{background:"rgba(0,113,227,.08)",border:"0.5px solid rgba(0,113,227,.2)",borderRadius:"12px",padding:"16px 20px",fontSize:"14px",color:T.accent,lineHeight:"1.7"}}>
             👋 <strong>Welcome!</strong> Complete these steps to start generating and posting social media content for your events.
           </div>
         )}
@@ -380,7 +413,7 @@ function SettingsPage({settings, onSave, onClose, isFirstRun, isDark, onToggleTh
             {!local.useSharedKey&&(
               <div style={{position:"relative"}}>
                 <input type={showPersonalKey?"text":"password"} value={local.apiKey} onChange={e=>set("apiKey",e.target.value)}
-                  placeholder="sk-ant-api03-..." style={inputStyle}/>
+                  placeholder="sk-ant-api03-..." style={inputStyle(T)}/>
                 <button onClick={()=>setShowPersonalKey(s=>!s)} style={eyeBtn}>{showPersonalKey?"🙈":"👁️"}</button>
                 {!local.apiKey&&(
                   <div style={{marginTop:"8px",fontSize:"12px",color:T.textSub}}>
@@ -399,7 +432,7 @@ function SettingsPage({settings, onSave, onClose, isFirstRun, isDark, onToggleTh
             {local.useSharedKey&&(
               <div style={{position:"relative"}}>
                 <input type={showSharedKey?"text":"password"} value={local.sharedApiKey} onChange={e=>set("sharedApiKey",e.target.value)}
-                  placeholder="sk-ant-api03-..." style={inputStyle}/>
+                  placeholder="sk-ant-api03-..." style={inputStyle(T)}/>
                 <button onClick={()=>setShowSharedKey(s=>!s)} style={eyeBtn}>{showSharedKey?"🙈":"👁️"}</button>
               </div>
             )}
@@ -410,8 +443,8 @@ function SettingsPage({settings, onSave, onClose, isFirstRun, isDark, onToggleTh
         <Section num="2" title="Event Source URL" subtitle="The web page to scan for events" complete={!!local.eventSourceUrl.trim()}>
           <input type="url" value={local.eventSourceUrl} onChange={e=>set("eventSourceUrl",e.target.value)}
             placeholder="https://www.aacc-texas.org/events.html#!event-list"
-            style={{...inputStyle,fontFamily:"monospace",fontSize:"12px"}}/>
-          <div style={{fontSize:"12px",color:"#4A6A8A",marginTop:"8px",lineHeight:"1.6"}}>
+            style={{...inputStyle(T),fontFamily:"monospace",fontSize:"12px"}}/>
+          <div style={{fontSize:"12px",color:T.textSub,marginTop:"8px",lineHeight:"1.6"}}>
             💡 This URL is used when you click "Auto Scan". For Weebly-based sites, use the Console Script method instead.
           </div>
         </Section>
@@ -420,8 +453,8 @@ function SettingsPage({settings, onSave, onClose, isFirstRun, isDark, onToggleTh
         <Section num="3" title="Posting Platforms" subtitle={`Select at least one • ${activePlatforms} selected`} complete={activePlatforms>=1}>
           <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
             {platformDefs.map(p=>(
-              <label key={p.key} style={{display:"flex",alignItems:"center",gap:"12px",padding:"12px 16px",background:local.platforms[p.key]?"rgba(0,48,143,.2)":"rgba(0,0,0,.2)",border:`1px solid ${local.platforms[p.key]?"#2A4A7F":"#1E3A5F"}`,borderRadius:"10px",cursor:"pointer",transition:"all .15s"}}>
-                <div style={{width:"18px",height:"18px",borderRadius:"4px",border:`2px solid ${local.platforms[p.key]?p.color:"#2A4A7F"}`,background:local.platforms[p.key]?p.color:"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",transition:"all .15s"}}>
+              <label key={p.key} style={{display:"flex",alignItems:"center",gap:"12px",padding:"12px 16px",background:local.platforms[p.key]?"rgba(0,48,143,.2)":"rgba(0,0,0,.2)",border:"0.5px solid "+(local.platforms[p.key]?T.accent:T.border),borderRadius:"10px",cursor:"pointer",transition:"all .15s"}}>
+                <div style={{width:"18px",height:"18px",borderRadius:"4px",border:"2px solid "+(local.platforms[p.key]?p.color:T.border),background:local.platforms[p.key]?p.color:"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",transition:"all .15s"}}>
                   {local.platforms[p.key]&&<span style={{color:"#fff",fontSize:"11px",lineHeight:1,fontWeight:"bold"}}>✓</span>}
                 </div>
                 <input type="checkbox" checked={!!local.platforms[p.key]} onChange={e=>setPlatform(p.key,e.target.checked)} style={{display:"none"}}/>
@@ -440,8 +473,8 @@ function SettingsPage({settings, onSave, onClose, isFirstRun, isDark, onToggleTh
               <div style={{fontSize:"13px",color:T.text,fontWeight:"bold",marginBottom:"8px"}}>✉️ Default Email Recipient (optional)</div>
               <input type="email" value={local.emailTo} onChange={e=>set("emailTo",e.target.value)}
                 placeholder="e.g. members@aacc-texas.org"
-                style={inputStyle}/>
-              <div style={{fontSize:"12px",color:"#4A6A8A",marginTop:"6px"}}>Leave blank to open email client with empty To: field</div>
+                style={inputStyle(T)}/>
+              <div style={{fontSize:"12px",color:T.textSub,marginTop:"6px"}}>Leave blank to open email client with empty To: field</div>
             </div>
           )}
         </Section>
@@ -455,8 +488,8 @@ function SettingsPage({settings, onSave, onClose, isFirstRun, isDark, onToggleTh
             </div>
           )}
           <button onClick={handleSave} disabled={!canSave} style={{
-            background:canSave?"linear-gradient(135deg,#FFCD00,#E6B800)":"#1E3A5F",
-            color:canSave?"#001A4D":"#4A6A8A",border:"none",borderRadius:"10px",
+            background:canSave?T.btnPrimary:T.btnGhost,
+            color:canSave?T.btnPrimaryText:T.textSub,border:"none",borderRadius:"10px",
             padding:"14px 40px",cursor:canSave?"pointer":"not-allowed",
             fontSize:"16px",fontWeight:"bold",width:"100%",maxWidth:"320px",
             transition:"all .2s",
@@ -471,34 +504,34 @@ function SettingsPage({settings, onSave, onClose, isFirstRun, isDark, onToggleTh
 }
 
 // ── Helper UI components ──────────────────────────────────────────────────────
-const inputStyle = {
-  width:"100%",padding:"10px 14px",background:"rgba(0,0,0,.4)",border:"1px solid #2A4A7F",
-  borderRadius:"8px",color:"#E2D9C5",fontSize:"14px",fontFamily:"inherit",boxSizing:"border-box",
+const inputStyle = (T) => ({
+  width:"100%",padding:"10px 14px",background:T.bgCardAlt,border:"0.5px solid "+T.border,
+  borderRadius:"8px",color:T.text,fontSize:"14px",fontFamily:"inherit",boxSizing:"border-box",
   outline:"none",
-};
+});
 const eyeBtn = {
   position:"absolute",right:"10px",top:"50%",transform:"translateY(-50%)",
   background:"transparent",border:"none",cursor:"pointer",fontSize:"16px",padding:"4px",
 };
-
 function Toggle({checked, onChange}) {
   return (
-    <div onClick={onChange} style={{width:"36px",height:"20px",borderRadius:"10px",background:checked?"#3B82F6":"#2A4A7F",position:"relative",cursor:"pointer",flexShrink:0,transition:"background .2s"}}>
-      <div style={{position:"absolute",top:"2px",left:checked?"18px":"2px",width:"16px",height:"16px",borderRadius:"50%",background:"#fff",transition:"left .2s"}}/>
+    <div onClick={onChange} style={{width:"36px",height:"20px",borderRadius:"10px",background:checked?"#0071E3":"rgba(120,120,128,.3)",position:"relative",cursor:"pointer",flexShrink:0,transition:"background .2s"}}>
+      <div style={{position:"absolute",top:"2px",left:checked?"18px":"2px",width:"16px",height:"16px",borderRadius:"50%",background:"#fff",transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
     </div>
   );
 }
 
 function Section({num, title, subtitle, complete, children}) {
+  const _scTheme = localStorage.getItem("sma-theme-v1"); const _scDark = _scTheme===null||_scTheme==="dark"; const T = _scDark ? DARK : LIGHT;
   return (
-    <div style={{background:"rgba(0,20,60,.5)",border:`1px solid ${complete?"#2A6A3F":"#1E3A5F"}`,borderRadius:"14px",overflow:"hidden"}}>
-      <div style={{padding:"16px 20px",borderBottom:"1px solid #1E3A5F22",display:"flex",alignItems:"center",gap:"12px"}}>
-        <div style={{width:"28px",height:"28px",borderRadius:"50%",background:complete?"#14532D":"#1E3A5F",border:`2px solid ${complete?"#4ADE80":"#2A4A7F"}`,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"13px",color:complete?"#4ADE80":"#6B8FAD",flexShrink:0}}>
+    <div style={{background:T.bgCard,border:"0.5px solid "+(complete?"rgba(52,199,89,.3)":T.border),borderRadius:"14px",overflow:"hidden",boxShadow:_scDark?"none":"0 1px 3px rgba(0,0,0,.06)"}}>
+      <div style={{padding:"16px 20px",borderBottom:"0.5px solid "+T.border,display:"flex",alignItems:"center",gap:"12px"}}>
+        <div style={{width:"28px",height:"28px",borderRadius:"50%",background:complete?T.success:"rgba(0,113,227,.1)",border:"0.5px solid "+(complete?"rgba(52,199,89,.3)":"rgba(0,113,227,.2)"),display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"13px",color:complete?"#4ADE80":T.textSub,flexShrink:0}}>
           {complete?"✓":num}
         </div>
         <div>
-          <div style={{fontSize:"15px",fontWeight:"bold",color:"#E2D9C5"}}>{title}</div>
-          <div style={{fontSize:"12px",color:complete?"#4ADE80":"#6B8FAD",marginTop:"1px"}}>{subtitle}</div>
+          <div style={{fontSize:"15px",fontWeight:"bold",color:T.text,fontWeight:"600"}}>{title}</div>
+          <div style={{fontSize:"12px",color:complete?T.successText:T.textSub,marginTop:"1px"}}>{subtitle}</div>
         </div>
       </div>
       <div style={{padding:"16px 20px"}}>{children}</div>
@@ -523,7 +556,6 @@ function App() {
   const [notif,       setNotif]       = useState(null);
   const [modal,       setModal]       = useState(null);
   const [showExport,  setShowExport]  = useState(false);
-  const [showScript,  setShowScript]  = useState(false);
   const [showPaste,   setShowPaste]   = useState(false);
   const [pasteText,   setPasteText]   = useState("");
   const [recapUrl,    setRecapUrl]    = useState("");
@@ -532,7 +564,7 @@ function App() {
   const [recapError,  setRecapError]  = useState(null);
   const [scriptCopied,setScriptCopied]= useState(false);
   const [showSettings,setShowSettings]= useState(false);
-  const [isDark, setIsDark] = useState(true);
+  const saved_theme = localStorage.getItem("sma-theme-v1"); const [isDark, setIsDark] = useState(saved_theme===null ? false : saved_theme==="dark");
   const [settings,    setSettings]    = useState(DEFAULT_SETTINGS);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   // ── Batch queue: [{eventId, platformKey, text}]
@@ -791,15 +823,11 @@ const generateRecap = async () => {
   }
 
   return (
-    <div style={{minHeight:"100vh",background:T.bg,fontFamily:"Georgia,'Times New Roman',serif",color:T.text}}>
-      {/* Background glow */}
-      <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0}}>
-        <div style={{position:"absolute",width:"700px",height:"700px",borderRadius:"50%",background:"radial-gradient(circle,rgba(0,48,143,.12) 0%,transparent 70%)",top:"-200px",left:"-200px"}}/>
-        <div style={{position:"absolute",width:"500px",height:"500px",borderRadius:"50%",background:"radial-gradient(circle,rgba(255,205,0,.05) 0%,transparent 70%)",bottom:0,right:"-100px"}}/>
-      </div>
+    <div style={{minHeight:"100vh",background:T.bg,fontFamily:"-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif",color:T.text}}>
+
 
       {/* Toast */}
-      {notif&&<div style={{position:"fixed",top:20,right:20,zIndex:2000,background:notif.type==="err"?"#7F1D1D":"#14532D",border:`1px solid ${notif.type==="err"?"#F87171":"#4ADE80"}`,color:"#fff",padding:"12px 20px",borderRadius:"10px",boxShadow:"0 8px 32px rgba(0,0,0,.5)",fontSize:"14px",animation:"fadeSlide .3s ease"}}>{notif.msg}</div>}
+      {notif&&<div style={{position:"fixed",top:20,right:20,zIndex:2000,background:notif.type==="err"?"#FF3B30":"#34C759",color:"#fff",padding:"12px 20px",borderRadius:"10px",boxShadow:"0 4px 16px rgba(0,0,0,.2)",fontSize:"13px",fontWeight:"600",animation:"fadeSlide .3s ease"}}>{notif.msg}</div>}
 
       {/* Modals */}
       {modal&&<PreviewModal modal={modal} settings={settings} onClose={()=>setModal(null)}
@@ -814,93 +842,92 @@ const generateRecap = async () => {
       />}
 
       {/* Header */}
-      <div style={{position:"relative",zIndex:1,background:"linear-gradient(135deg,#00205B,#001540)",borderBottom:"2px solid #FFCD00",padding:"18px 28px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"12px"}}>
-        <div style={{display:"flex",alignItems:"center",gap:"14px"}}>
-          <div>
-            <div style={{display:"flex",alignItems:"baseline",gap:"8px",cursor:"pointer"}} onClick={()=>{setShowSettings(false);setActiveTab("upcoming");}}><div style={{fontSize:"16px",fontWeight:"bold",color:"#FFCD00",letterSpacing:"1px"}}>Social Media Assistant</div><div style={{fontSize:"10px",color:"#6B8FAD",letterSpacing:"1px",fontFamily:"monospace",opacity:0.8}}>{VERSION}</div></div>
-            <div style={{fontSize:"11px",color:"#93B4D4",letterSpacing:"2px",textTransform:"uppercase",marginTop:"2px"}}>Event 
-          </div>
+      <div style={{position:"relative",zIndex:10,background:T.bgCard,borderBottom:"0.5px solid "+T.border,padding:"12px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"10px",boxShadow:isDark?"none":"0 1px 3px rgba(0,0,0,.06)"}}>
+        <div style={{display:"flex",alignItems:"baseline",gap:"8px",cursor:"pointer"}} onClick={()=>{setShowSettings(false);setActiveTab("upcoming");}}>
+          <div style={{fontSize:"15px",fontWeight:"700",color:T.text,letterSpacing:"-.3px"}}>Social Media <span style={{color:T.accent}}>Assistant</span></div>
+          <div style={{fontSize:"10px",color:T.textSub,fontFamily:"monospace"}}>{VERSION}</div>
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:"10px",flexWrap:"wrap"}}>
-          <div style={{textAlign:"right",fontSize:"12px",color:"#6B8FAD"}}>
-            <div style={{color:"#93B4D4"}}>📅 {TODAY.toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}</div>
-            {lastScan&&<div style={{marginTop:"2px"}}>🔄 Last scan: {lastScan}</div>}
+        <div style={{display:"flex",alignItems:"center",gap:"8px",flexWrap:"wrap"}}>
+          <div style={{fontSize:"12px",color:T.textSub,marginRight:"4px",display:"flex",flexDirection:"column",alignItems:"flex-end"}}>
+            <span>📅 {TODAY.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</span>
+            {lastScan&&<span style={{marginTop:"1px"}}>🔄 {lastScan}</span>}
           </div>
           {Object.keys(posts).length>0&&(
-            <button onClick={()=>setShowExport(true)} style={{background:"rgba(255,205,0,.1)",color:"#FFCD00",border:"1px solid #FFCD0033",borderRadius:"7px",padding:"7px 14px",cursor:"pointer",fontSize:"12px",fontWeight:"bold"}}>⬇️ Export</button>
+            <button onClick={()=>setShowExport(true)} style={{background:T.btnGhost,color:T.btnGhostText,border:"0.5px solid "+T.btnGhostBorder,borderRadius:"20px",padding:"6px 14px",cursor:"pointer",fontSize:"12px",fontWeight:"600"}}>⬇️ Export</button>
           )}
-          <button onClick={()=>setShowBatch(true)} style={{position:"relative",background:queue.length>0?"rgba(34,197,94,.15)":"rgba(255,255,255,.06)",color:queue.length>0?"#4ADE80":"#6B8FAD",border:`1px solid ${queue.length>0?"#4ADE8066":"#1E3A5F"}`,borderRadius:"7px",padding:"7px 14px",cursor:"pointer",fontSize:"13px",fontWeight:queue.length>0?"bold":"normal",display:"flex",alignItems:"center",gap:"6px"}}>
-            🗂️ Queue{queue.length>0&&<span style={{background:"#4ADE80",color:"#001A4D",borderRadius:"10px",padding:"1px 7px",fontSize:"11px",fontWeight:"bold"}}>{queue.length}</span>}
+          <button onClick={()=>setShowBatch(true)} style={{position:"relative",background:queue.length>0?T.success:T.btnGhost,color:queue.length>0?T.successText:T.btnGhostText,border:"0.5px solid "+(queue.length>0?"rgba(52,199,89,.3)":T.btnGhostBorder),borderRadius:"20px",padding:"6px 14px",cursor:"pointer",fontSize:"12px",fontWeight:queue.length>0?"700":"500",display:"flex",alignItems:"center",gap:"5px"}}>
+            🗂️ Queue{queue.length>0&&<span style={{background:T.successText,color:"#fff",borderRadius:"10px",padding:"1px 6px",fontSize:"10px",fontWeight:"700"}}>{queue.length}</span>}
           </button>
-          <button onClick={toggleTheme} style={{background:"none",border:"none",cursor:"pointer",fontSize:"18px",padding:"6px 10px",lineHeight:1}} title={isDark?"Light mode":"Dark mode"}>{isDark?"☀️":"🌙"}</button>
-          <a href="mailto:andycon@gmail.com?subject=Social Media Assistant — Feedback&body=Thank you for your feedback, we will work to improve the app!%0A%0APlease include screenshots if they help support your comment.%0A%0A--- Your feedback below ---" style={{background:"rgba(255,255,255,.06)",color:"#93B4D4",border:"1px solid #1E3A5F",borderRadius:"7px",padding:"7px 14px",cursor:"pointer",fontSize:"13px",textDecoration:"none",display:"inline-block"}} title="Send feedback">💬 Feedback</a>
-          <button onClick={()=>setShowSettings(true)} style={{background:"rgba(255,255,255,.06)",color:"#93B4D4",border:"1px solid #1E3A5F",borderRadius:"7px",padding:"7px 14px",cursor:"pointer",fontSize:"13px"}}>⚙️ Settings</button>
+          <button onClick={toggleTheme} style={{background:T.btnGhost,border:"0.5px solid "+T.btnGhostBorder,borderRadius:"20px",width:"34px",height:"34px",cursor:"pointer",fontSize:"15px",display:"flex",alignItems:"center",justifyContent:"center"}} title={isDark?"Light mode":"Dark mode"}>{isDark?"☀️":"🌙"}</button>
+          <a href={"mailto:andycon@gmail.com?subject=Social Media Assistant — Feedback&body=Thank you for your feedback!%0A%0APlease include screenshots if they help.%0A%0A--- Your feedback ---"} style={{background:T.btnGhost,color:T.btnGhostText,border:"0.5px solid "+T.btnGhostBorder,borderRadius:"20px",padding:"6px 14px",cursor:"pointer",fontSize:"12px",textDecoration:"none",display:"inline-block",fontWeight:"500"}}>💬 Feedback</a>
+          <button onClick={()=>setShowSettings(true)} style={{background:T.btnPrimary,color:T.btnPrimaryText,border:"none",borderRadius:"20px",padding:"6px 16px",cursor:"pointer",fontSize:"12px",fontWeight:"600"}}>⚙️ Settings</button>
         </div>
       </div>
 
       {/* API key warning banner */}
       {!settings.setupComplete&&(
-        <div style={{position:"relative",zIndex:1,background:"#7F1D1D",borderBottom:"1px solid #F87171",padding:"12px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:"12px",flexWrap:"wrap"}}>
-          <div style={{fontSize:"13px",color:"#FCA5A5"}}>⚠️ Setup incomplete — add your API key and configure your posting platforms to get started.</div>
-          <button onClick={()=>setShowSettings(true)} style={{background:"#F87171",color:"#7F1D1D",border:"none",borderRadius:"6px",padding:"6px 14px",cursor:"pointer",fontSize:"12px",fontWeight:"bold"}}>Open Settings →</button>
+        <div style={{position:"relative",zIndex:1,background:T.warning,borderBottom:"0.5px solid "+T.warningBorder,padding:"10px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:"12px",flexWrap:"wrap"}}>
+          <div style={{fontSize:"13px",color:isDark?"#FF6961":"#C0392B"}}>⚠️ Setup incomplete — add your API key and configure platforms to get started.</div>
+          <button onClick={()=>setShowSettings(true)} style={{background:isDark?"rgba(255,105,97,.2)":"rgba(192,57,43,.1)",color:isDark?"#FF6961":"#C0392B",border:"0.5px solid "+(isDark?"rgba(255,105,97,.4)":"rgba(192,57,43,.3)"),borderRadius:"16px",padding:"5px 14px",cursor:"pointer",fontSize:"12px",fontWeight:"600"}}>Open Settings →</button>
         </div>
       )}
 
-      {/* Stats */}
-      <div style={{position:"relative",zIndex:1,display:"flex",borderBottom:"1px solid #1E3A5F"}}>
-        {[{icon:"📋",val:events.length,label:"Total"},{icon:"🗓️",val:upcoming.length,label:"Upcoming"},{icon:"✅",val:past.length,label:"Past"},{icon:"✍️",val:withPosts.length,label:"Posts Ready"}].map(s=>(
-          <div key={s.label} style={{flex:1,padding:"12px 8px",textAlign:"center",background:T.stats,borderRight:"1px solid #1E3A5F"}}>
-            <div style={{fontSize:"22px",fontWeight:"bold",color:"#FFCD00"}}>{s.icon} {s.val}</div>
-            <div style={{fontSize:"10px",color:T.textSub,letterSpacing:"1px",textTransform:"uppercase",marginTop:"2px"}}>{s.label}</div>
+      {/* Hero / Stats */}
+      <div style={{position:"relative",zIndex:1,background:T.bgHero,padding:"20px 24px 18px"}}>
+        <div style={{maxWidth:"1100px",margin:"0 auto"}}>
+          <div style={{fontSize:"22px",fontWeight:"700",color:"#fff",letterSpacing:"-.4px",marginBottom:"2px"}}>
+            {settings.orgName||"Social Media Assistant"}
           </div>
-        ))}
+          <div style={{fontSize:"12px",color:"rgba(255,255,255,.7)",marginBottom:"14px"}}>
+            {settings.eventSourceUrl?settings.eventSourceUrl.replace(/^https?:\/\//,""):"Configure event source in Settings"} · {TODAY.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"})}
+          </div>
+          <div style={{display:"flex",gap:"10px",flexWrap:"wrap"}}>
+            {[{val:events.length,label:"Total"},{val:upcoming.length,label:"Upcoming"},{val:past.length,label:"Past"},{val:withPosts.length,label:"Posts ready",green:true}].map(s=>(
+              <div key={s.label} style={{background:"rgba(255,255,255,.15)",backdropFilter:"blur(8px)",borderRadius:"12px",padding:"10px 18px",minWidth:"70px",textAlign:"center",border:"0.5px solid rgba(255,255,255,.2)"}}>
+                <div style={{fontSize:"22px",fontWeight:"700",color:s.green?"#30D158":"#fff",lineHeight:"1"}}>{s.val}</div>
+                <div style={{fontSize:"10px",color:"rgba(255,255,255,.7)",textTransform:"uppercase",letterSpacing:".08em",marginTop:"2px"}}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      <div style={{position:"relative",zIndex:1,maxWidth:"1100px",margin:"0 auto",padding:"24px 16px"}}>
+      <div style={{position:"relative",zIndex:1,maxWidth:"1100px",margin:"0 auto",padding:"20px 20px"}}>
 
         {/* Scan panel */}
-        <div style={{background:T.bgCard,border:"1px solid "+T.border,borderRadius:"14px",padding:"20px 24px",marginBottom:"24px"}}>
+        <div style={{background:T.scanCard,border:"0.5px solid "+T.border,borderRadius:"14px",padding:"18px 22px",marginBottom:"20px",boxShadow:isDark?"none":"0 1px 3px rgba(0,0,0,.06)"}}>
           <div style={{display:"flex",alignItems:"flex-start",gap:"16px",flexWrap:"wrap"}}>
             <div style={{flex:1,minWidth:"220px"}}>
-              <div style={{fontWeight:"bold",color:"#FFCD00",fontSize:"15px",marginBottom:"6px"}}>🌐 Fetch Events</div>
-              <div style={{fontSize:"12px",color:"#6B8FAD",lineHeight:"1.6"}}>Source: <code style={{color:"#93B4D4"}}>{settings.eventSourceUrl||"not set"}</code></div>
-              {scanStep&&<div style={{marginTop:"10px",fontSize:"13px",color:scanStep.startsWith("✅")?"#4ADE80":scanStep.startsWith("❌")?"#F87171":"#93B4D4",background:T.bgCardAlt,padding:"8px 12px",borderRadius:"6px",lineHeight:"1.5"}}>{scanStep}</div>}
+              <div style={{fontWeight:"700",color:T.accent,fontSize:"14px",marginBottom:"5px"}}>🌐 Fetch Events</div>
+              <div style={{fontSize:"12px",color:T.textSub,lineHeight:"1.6"}}>Source: <code style={{color:T.text,background:T.bgCardAlt,padding:"1px 6px",borderRadius:"4px",fontSize:"11px"}}>{settings.eventSourceUrl||"not set"}</code></div>
+              {scanStep&&<div style={{marginTop:"10px",fontSize:"13px",color:scanStep.startsWith("✅")?"#30D158":scanStep.startsWith("❌")?"#FF6961":T.textSub,background:T.bgCardAlt,padding:"8px 12px",borderRadius:"8px",lineHeight:"1.5"}}>{scanStep}</div>}
             </div>
-            <div style={{display:"flex",flexDirection:"column",gap:"8px",flexShrink:0}}>
-              <button onClick={autoScan} disabled={scanning||!settingsLoaded} style={{background:scanning?"#1E3A5F":"linear-gradient(135deg,#FFCD00,#E6B800)",color:scanning?"#6B8FAD":"#001A4D",border:"none",borderRadius:"8px",padding:"10px 18px",cursor:scanning?"not-allowed":"pointer",fontSize:"13px",fontWeight:"bold"}}>
-                {scanning?<span style={{animation:"pulse 1.2s infinite"}}>⏳ Scanning…</span>:"🔍 Auto Scan"}
+            <div style={{flexShrink:0}}>
+              <button onClick={autoScan} disabled={scanning||!settingsLoaded} style={{background:scanning?T.btnGhost:T.btnPrimary,color:scanning?T.textSub:T.btnPrimaryText,border:"none",borderRadius:"10px",padding:"10px 22px",cursor:scanning?"not-allowed":"pointer",fontSize:"13px",fontWeight:"700",display:"block"}}>
+                {scanning?<span>⏳ Scanning…</span>:"🔍 Auto Scan"}
               </button>
-              <button onClick={()=>setShowScript(s=>!s)} style={{background:"transparent",color:"#93B4D4",border:"1px solid #1E3A5F",borderRadius:"8px",padding:"8px 16px",cursor:"pointer",fontSize:"12px"}}>{showScript?"▲ Hide Script":"🖥️ Console Script"}</button>
-              <button onClick={()=>setShowPaste(s=>!s)} style={{background:"transparent",color:"#93B4D4",border:"1px solid #1E3A5F",borderRadius:"8px",padding:"8px 16px",cursor:"pointer",fontSize:"12px"}}>{showPaste?"▲ Hide":"📋 Paste JSON"}</button>
             </div>
           </div>
-          {showScript&&(
-            <div style={{marginTop:"16px",borderTop:"1px solid #1E3A5F",paddingTop:"16px"}}>
-              <div style={{fontSize:"12px",color:"#93B4D4",marginBottom:"8px"}}>Open <a href={settings.eventSourceUrl} target="_blank" rel="noopener noreferrer" style={{color:"#3B82F6"}}>{settings.eventSourceUrl}</a> → F12 → Console → paste & run → copy JSON → paste below.</div>
-              <div style={{position:"relative"}}>
-                <pre style={{background:T.bgCardAlt,border:"1px solid "+T.border,borderRadius:"8px",padding:"12px",fontSize:"10px",color:"#93B4D4",overflow:"auto",maxHeight:"120px"}}>{CONSOLE_SCRIPT}</pre>
-                <button onClick={copyScript} style={{position:"absolute",top:"8px",right:"8px",background:scriptCopied?"#14532D":"rgba(0,30,80,.8)",color:scriptCopied?"#4ADE80":"#93B4D4",border:`1px solid ${scriptCopied?"#4ADE80":"#1E3A5F"}`,borderRadius:"6px",padding:"4px 10px",cursor:"pointer",fontSize:"11px"}}>{scriptCopied?"✓ Copied!":"📋 Copy"}</button>
-              </div>
-            </div>
-          )}
           {showPaste&&(
-            <div style={{marginTop:"16px",borderTop:"1px solid #1E3A5F",paddingTop:"16px"}}>
-              <textarea value={pasteText} onChange={e=>setPasteText(e.target.value)} placeholder="Paste JSON array here..." style={{width:"100%",minHeight:"80px",background:T.bgCardAlt,border:"1px solid "+T.border,borderRadius:"8px",color:T.text,padding:"10px",fontSize:"11px",fontFamily:"monospace",resize:"vertical",boxSizing:"border-box"}}/>
+            <div style={{marginTop:"14px",paddingTop:"14px",borderTop:"0.5px solid "+T.border}}>
+              <div style={{fontSize:"12px",color:T.textSub,marginBottom:"8px"}}>Paste event JSON array:</div>
+              <textarea rows={6} value={pasteText} onChange={e=>setPasteText(e.target.value)} style={{width:"100%",background:T.bgCardAlt,border:"0.5px solid "+T.border,borderRadius:"8px",padding:"10px",color:T.text,fontSize:"12px",fontFamily:"monospace",resize:"vertical"}} placeholder='[{"title":"...","date":"..."}]'/>
               <div style={{display:"flex",gap:"8px",marginTop:"8px"}}>
-                <button onClick={processPaste} disabled={!pasteText.trim()} style={{background:"linear-gradient(135deg,#FFCD00,#E6B800)",color:"#001A4D",border:"none",borderRadius:"8px",padding:"9px 16px",cursor:"pointer",fontSize:"12px",fontWeight:"bold"}}>✅ Load Events</button>
-                <button onClick={()=>{setPasteText("");setShowPaste(false);}} style={{background:"transparent",color:"#6B8FAD",border:"1px solid #1E3A5F",borderRadius:"8px",padding:"9px 14px",cursor:"pointer",fontSize:"12px"}}>Cancel</button>
+                <button onClick={()=>{try{const evs=JSON.parse(pasteText);if(!Array.isArray(evs))throw new Error("Not an array");saveEvents(evs);setPasteText("");setShowPaste(false);toast("Loaded "+evs.length+" events");}catch(e){toast("Invalid JSON: "+e.message,"err");}}} style={{background:T.btnPrimary,color:T.btnPrimaryText,border:"none",borderRadius:"8px",padding:"7px 16px",cursor:"pointer",fontSize:"12px",fontWeight:"600"}}>Load Events</button>
+                <button onClick={()=>{setShowPaste(false);setPasteText("");}} style={{background:T.btnGhost,color:T.btnGhostText,border:"0.5px solid "+T.btnGhostBorder,borderRadius:"8px",padding:"7px 14px",cursor:"pointer",fontSize:"12px"}}>Cancel</button>
               </div>
             </div>
           )}
         </div>
 
         {/* Tabs */}
-        <div style={{display:"flex",gap:"2px",marginBottom:"20px",borderBottom:"1px solid #1E3A5F"}}>
+        <div style={{display:"flex",gap:"0",borderBottom:"0.5px solid "+T.border,marginBottom:"20px",background:T.bgCard,borderRadius:"12px 12px 0 0",overflow:"hidden",boxShadow:isDark?"none":"0 1px 3px rgba(0,0,0,.04)"}}>
           {[{id:"upcoming",label:`🗓️ Upcoming (${upcoming.length})`},{id:"past",label:`✅ Past (${past.length})`},{id:"posts",label:`✍️ Posts (${withPosts.length})`},{id:"recap",label:"🔁 Recap"}].map(t=>(
-            <button key={t.id} onClick={()=>setActiveTab(t.id)} style={{background:activeTab===t.id?"rgba(0,48,143,.4)":"transparent",color:activeTab===t.id?"#FFCD00":"#6B8FAD",border:"none",borderBottom:activeTab===t.id?"2px solid #FFCD00":"2px solid transparent",padding:"10px 20px",cursor:"pointer",fontSize:"13px",fontWeight:activeTab===t.id?"bold":"normal",transition:"all .2s"}}>{t.label}</button>
+            <button key={t.id} onClick={()=>setActiveTab(t.id)} style={{background:"transparent",color:activeTab===t.id?T.tabActive:T.textSub,border:"none",borderBottom:activeTab===t.id?"2px solid "+T.tabActiveBorder:"2px solid transparent",padding:"11px 18px",cursor:"pointer",fontSize:"13px",fontWeight:activeTab===t.id?"600":"400",fontFamily:"inherit",whiteSpace:"nowrap"}}>
+              {t.label}
+            </button>
           ))}
         </div>
-
         {activeTab==="upcoming"&&(upcoming.length===0?<EmptyState icon="🦘" msg="No upcoming events yet" sub='Click "Auto Scan" to load events.'/>:
           upcoming.map(ev=><EventCard key={ev.id} T={T} event={ev} post={posts[ev.id]} editedPost={editedPosts[ev.id]}
             isExpanded={expandedId===ev.id} isGenerating={genId===ev.id} activePlatforms={activePlatforms}
@@ -929,8 +956,8 @@ const generateRecap = async () => {
         )}
 
         {activeTab==="recap"&&(
-          <div style={{background:T.bgCard,border:"1px solid "+T.border,borderRadius:"14px",padding:"24px",marginBottom:"16px"}}>
-            <div style={{fontWeight:"bold",color:T.gold,fontSize:"16px",marginBottom:"6px"}}>🔁 Retrospective Post Generator</div>
+          <div style={{background:T.bgCard,border:"0.5px solid "+T.border,borderRadius:"14px",padding:"24px",marginBottom:"16px",boxShadow:T.bg==="#F2F2F7"?"0 1px 3px rgba(0,0,0,.06)":"none"}}>
+            <div style={{fontWeight:"700",color:T.text,fontSize:"15px",marginBottom:"6px"}}>🔁 Retrospective Post Generator</div>
             <div style={{fontSize:"13px",color:T.textSub,marginBottom:"20px",lineHeight:"1.6"}}>Paste any past event URL below. Claude will write social media recap posts in past tense — great for thanking attendees and sharing highlights.</div>
             <div style={{display:"flex",gap:"10px",flexWrap:"wrap",marginBottom:"16px"}}>
               <input
@@ -938,12 +965,12 @@ const generateRecap = async () => {
                 value={recapUrl}
                 onChange={e=>setRecapUrl(e.target.value)}
                 placeholder="https://your-org.com/events/past-event"
-                style={{flex:1,minWidth:"200px",background:T.bgCardAlt,border:"1px solid "+T.border,borderRadius:"8px",padding:"10px 14px",color:T.text,fontSize:"13px",outline:"none"}}
+                style={{flex:1,minWidth:"200px",background:T.bgCardAlt,border:"0.5px solid "+T.border,borderRadius:"8px",padding:"10px 14px",color:T.text,fontSize:"13px",outline:"none"}}
               />
               <button
                 onClick={generateRecap}
                 disabled={recapLoading||!recapUrl.trim()}
-                style={{background:recapLoading?"#1E3A5F":"linear-gradient(135deg,#FFCD00,#E6B800)",color:recapLoading?"#6B8FAD":"#001A4D",border:"none",borderRadius:"8px",padding:"10px 20px",cursor:recapLoading||!recapUrl.trim()?"not-allowed":"pointer",fontWeight:"bold",fontSize:"13px",whiteSpace:"nowrap"}}
+                style={{background:recapLoading?T.btnGhost:T.btnPrimary,color:recapLoading?T.textSub:T.btnPrimaryText,border:"none",borderRadius:"8px",padding:"10px 20px",cursor:recapLoading||!recapUrl.trim()?"not-allowed":"pointer",fontWeight:"bold",fontSize:"13px",whiteSpace:"nowrap"}}
               >
                 {recapLoading?"⏳ Generating…":"✍️ Generate Recap Posts"}
               </button>
@@ -970,7 +997,7 @@ const generateRecap = async () => {
                         {p.key==="facebook"&&<FacebookPreview text={text}/>}
                         {p.key==="instagram"&&<InstagramPreview text={text}/>}
                         {(p.key==="email"||p.key==="file")&&(
-                          <div style={{background:"#f9f9f9",borderRadius:"10px",border:"1px solid #e0e0e0",fontFamily:"Georgia,serif",overflow:"hidden"}}>
+                          <div style={{background:"#f9f9f9",borderRadius:"10px",border:"0.5px solid rgba(0,0,0,.1)",fontFamily:"-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif",overflow:"hidden"}}>
                             {p.key==="email"&&<div style={{background:"#e8edf2",padding:"10px 16px",borderBottom:"1px solid #d0d8e0",fontSize:"12px",color:"#444"}}>
                               <div><strong>From:</strong> {(typeof settings!=="undefined"&&settings.orgName)||"Your Org"} &lt;noreply@yourorg.com&gt;</div>
                               <div><strong>Subject:</strong> Event Recap</div>
@@ -982,7 +1009,7 @@ const generateRecap = async () => {
                     </div>
                   );
                 })}
-                <button onClick={()=>{setRecapPosts(null);setRecapUrl("");}} style={{background:"none",border:"1px solid "+T.border,borderRadius:"7px",padding:"7px 14px",cursor:"pointer",color:T.textSub,fontSize:"12px",marginTop:"4px"}}>🗑️ Clear</button>
+                <button onClick={()=>{setRecapPosts(null);setRecapUrl("");}} style={{background:"none",border:"0.5px solid "+T.border,borderRadius:"7px",padding:"7px 14px",cursor:"pointer",color:T.textSub,fontSize:"12px",marginTop:"4px"}}>🗑️ Clear</button>
               </div>
             )}
           </div>
@@ -997,7 +1024,6 @@ const generateRecap = async () => {
         textarea:focus,input:focus{outline:1px solid #3B82F6}
       `}</style>
     </div>
-  </div>
   );
 }
 
@@ -1006,6 +1032,7 @@ const generateRecap = async () => {
 // PREVIEW / CONFIRM MODAL (with editable text + final confirm)
 // ═════════════════════════════════════════════════════════════════════════════
 function PreviewModal({modal, settings, onClose, onUpdateText}) {
+  const _pmTheme = localStorage.getItem("sma-theme-v1"); const _pmDark = _pmTheme===null||_pmTheme==="dark"; const T = _pmDark ? DARK : LIGHT;
   const {event, platformKey} = modal;
   const [text, setText] = useState(modal.text);
   const [posted, setPosted] = useState(false);
@@ -1038,27 +1065,27 @@ function PreviewModal({modal, settings, onClose, onUpdateText}) {
 
   return (
     <div style={{position:"fixed",inset:0,zIndex:1500,background:"rgba(0,0,0,.8)",display:"flex",alignItems:"center",justifyContent:"center",padding:"16px"}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div style={{background:"#0F1A30",border:"1px solid #1E3A5F",borderRadius:"16px",width:"100%",maxWidth:"620px",maxHeight:"92vh",overflow:"hidden",display:"flex",flexDirection:"column",animation:"modalIn .25s ease",boxShadow:"0 24px 64px rgba(0,0,0,.7)"}}>
+      <div style={{background:T.modalBg,border:"0.5px solid "+T.border,borderRadius:"16px",width:"100%",maxWidth:"620px",maxHeight:"92vh",overflow:"hidden",display:"flex",flexDirection:"column",animation:"modalIn .25s ease",boxShadow:"0 24px 64px rgba(0,0,0,.7)"}}>
 
         {/* Header */}
-        <div style={{padding:"16px 20px",borderBottom:"1px solid #1E3A5F",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{padding:"16px 20px",borderBottom:"0.5px solid "+T.border,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
             <div style={{background:pCfg.color,color:"#fff",width:"32px",height:"32px",borderRadius:"8px",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"14px",flexShrink:0}}>{pCfg.icon}</div>
             <div>
-              <div style={{fontWeight:"bold",color:"#E2D9C5",fontSize:"15px"}}>Post to {pCfg.label}</div>
-              <div style={{fontSize:"11px",color:"#6B8FAD"}}>{event.title}</div>
+              <div style={{fontWeight:"bold",color:T.text,fontSize:"15px"}}>Post to {pCfg.label}</div>
+              <div style={{fontSize:"11px",color:T.textSub}}>{event.title}</div>
             </div>
           </div>
-          <button onClick={onClose} style={{background:"transparent",color:"#6B8FAD",border:"none",cursor:"pointer",fontSize:"22px",lineHeight:1,padding:"4px"}}>×</button>
+          <button onClick={onClose} style={{background:"transparent",color:T.textSub,border:"none",cursor:"pointer",fontSize:"22px",lineHeight:1,padding:"4px"}}>×</button>
         </div>
 
         <div style={{flex:1,overflowY:"auto",padding:"20px",display:"flex",flexDirection:"column",gap:"16px"}}>
 
           {/* Editable text */}
           <div>
-            <div style={{fontSize:"12px",color:"#6B8FAD",textTransform:"uppercase",letterSpacing:"1px",marginBottom:"8px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{fontSize:"12px",color:T.textSub,textTransform:"uppercase",letterSpacing:"1px",marginBottom:"8px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <span>✏️ Edit before posting</span>
-              <span style={{color:charOver?"#F87171":text.length>pCfg.charLimit*0.9?"#FFCD00":"#4A6A8A"}}>
+              <span style={{color:charOver?"#F87171":text.length>pCfg.charLimit*0.9?"#FF9500":T.textSub}}>
                 {text.length}/{pCfg.charLimit} chars {charOver&&"⚠️ TOO LONG"}
               </span>
             </div>
@@ -1072,9 +1099,9 @@ function PreviewModal({modal, settings, onClose, onUpdateText}) {
 
           {/* Preview */}
           <div>
-            <div style={{fontSize:"12px",color:"#6B8FAD",textTransform:"uppercase",letterSpacing:"1px",marginBottom:"8px"}}>👁️ Live Preview</div>
+            <div style={{fontSize:"12px",color:T.textSub,textTransform:"uppercase",letterSpacing:"1px",marginBottom:"8px"}}>👁️ Live Preview</div>
             {event.imageUrl&&(
-              <div style={{marginBottom:"10px",borderRadius:"8px",overflow:"hidden",border:"1px solid #1E3A5F",height:"100px"}}>
+              <div style={{marginBottom:"10px",borderRadius:"8px",overflow:"hidden",border:"0.5px solid "+T.border,height:"100px"}}>
                 <img src={event.imageUrl} alt={event.title} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
               </div>
             )}
@@ -1083,24 +1110,24 @@ function PreviewModal({modal, settings, onClose, onUpdateText}) {
 
           {/* Platform note */}
           {platformKey==="instagram"&&(
-            <div style={{padding:"8px 12px",background:"rgba(255,205,0,.08)",border:"1px solid #FFCD0033",borderRadius:"8px",fontSize:"12px",color:"#FFCD00"}}>
+            <div style={{padding:"8px 12px",background:"rgba(0,113,227,.06)",border:"0.5px solid rgba(0,113,227,.2)",borderRadius:"8px",fontSize:"12px",color:T.accent}}>
               📱 Instagram: text will be copied to clipboard and Instagram will open. Paste in the app or Creator Studio.
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div style={{padding:"16px 20px",borderTop:"1px solid #1E3A5F"}}>
+        <div style={{padding:"16px 20px",borderTop:"0.5px solid "+T.border}}>
           {posted ? (
             <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
               <div style={{flex:1,fontSize:"13px",color:"#4ADE80",lineHeight:"1.5"}}>✅ Done! {postNote}</div>
-              <button onClick={onClose} style={{background:"linear-gradient(135deg,#FFCD00,#E6B800)",color:"#001A4D",border:"none",borderRadius:"8px",padding:"9px 20px",cursor:"pointer",fontSize:"13px",fontWeight:"bold"}}>Close</button>
+              <button onClick={onClose} style={{background:T.btnPrimary,color:T.btnPrimaryText,border:"none",borderRadius:"8px",padding:"9px 20px",cursor:"pointer",fontSize:"13px",fontWeight:"bold"}}>Close</button>
             </div>
           ):(
             <div style={{display:"flex",gap:"10px",justifyContent:"flex-end"}}>
-              <button onClick={onClose} style={{background:"transparent",color:"#6B8FAD",border:"1px solid #1E3A5F",borderRadius:"8px",padding:"9px 20px",cursor:"pointer",fontSize:"13px"}}>Cancel</button>
+              <button onClick={onClose} style={{background:"transparent",color:T.textSub,border:"0.5px solid "+T.btnGhostBorder,borderRadius:"8px",padding:"9px 20px",cursor:"pointer",fontSize:"13px"}}>Cancel</button>
               <button onClick={handleConfirm} disabled={charOver} style={{
-                background:charOver?"#1E3A5F":`linear-gradient(135deg,${pCfg.color},${pCfg.color}CC)`,
+                background:charOver?T.btnGhost:`linear-gradient(135deg,${pCfg.color},${pCfg.color}CC)`,
                 color:"#fff",border:"none",borderRadius:"8px",padding:"9px 24px",
                 cursor:charOver?"not-allowed":"pointer",fontSize:"13px",fontWeight:"bold",
                 boxShadow:"0 4px 16px rgba(0,0,0,.3)",display:"flex",alignItems:"center",gap:"6px",
@@ -1119,6 +1146,7 @@ function PreviewModal({modal, settings, onClose, onUpdateText}) {
 // BATCH CONFIRM MODAL — review + confirm all queued posts at once
 // ═════════════════════════════════════════════════════════════════════════════
 function BatchConfirmModal({queue, events, settings, onUpdateText, onRemove, onClose, onPosted, toast}) {
+  const _bcTheme = localStorage.getItem("sma-theme-v1"); const _bcDark = _bcTheme===null||_bcTheme==="dark"; const T = _bcDark ? DARK : LIGHT;
   const [localQueue, setLocalQueue] = useState(queue.map(q=>({...q})));
   const [posting, setPosting] = useState(false);
   const [results, setResults] = useState({}); // {eventId-platformKey: "done"|"error"}
@@ -1159,24 +1187,24 @@ function BatchConfirmModal({queue, events, settings, onUpdateText, onRemove, onC
   const allDone = started && localQueue.every(q => results[`${q.eventId}-${q.platformKey}`] === "done");
 
   return (
-    <div style={{position:"fixed",inset:0,zIndex:1500,background:"rgba(0,0,0,.85)",display:"flex",alignItems:"center",justifyContent:"center",padding:"16px"}} onClick={e=>{if(e.target===e.currentTarget&&!posting)onClose();}}>
-      <div style={{background:"#0F1A30",border:"1px solid #1E3A5F",borderRadius:"16px",width:"100%",maxWidth:"680px",maxHeight:"92vh",overflow:"hidden",display:"flex",flexDirection:"column",animation:"modalIn .25s ease",boxShadow:"0 24px 64px rgba(0,0,0,.7)"}}>
+    <div style={{position:"fixed",inset:0,zIndex:1500,background:"rgba(0,0,0,.55)",display:"flex",alignItems:"center",justifyContent:"center",padding:"16px"}} onClick={e=>{if(e.target===e.currentTarget&&!posting)onClose();}}>
+      <div style={{background:T.modalBg,border:"0.5px solid "+T.border,borderRadius:"16px",width:"100%",maxWidth:"680px",maxHeight:"92vh",overflow:"hidden",display:"flex",flexDirection:"column",animation:"modalIn .25s ease",boxShadow:"0 24px 64px rgba(0,0,0,.7)"}}>
 
         {/* Header */}
-        <div style={{padding:"18px 24px",borderBottom:"1px solid #1E3A5F",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{padding:"18px 24px",borderBottom:"0.5px solid "+T.border,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div>
-            <div style={{fontWeight:"bold",color:"#FFCD00",fontSize:"17px"}}>🗂️ Post Queue — {localQueue.length} item{localQueue.length!==1?"s":""}</div>
-            <div style={{fontSize:"12px",color:"#6B8FAD",marginTop:"3px",lineHeight:"1.6"}}>
+            <div style={{fontWeight:"bold",color:T.text,fontSize:"16px",fontWeight:"700"}}>🗂️ Post Queue — {localQueue.length} item{localQueue.length!==1?"s":""}</div>
+            <div style={{fontSize:"12px",color:T.textSub,marginTop:"3px",lineHeight:"1.6"}}>
               Add posts to the queue from any event card using the <strong style={{color:"#93B4D4"}}>+ Queue</strong> button. Review and edit each post here, then click <strong style={{color:"#93B4D4"}}>Post All</strong> to open them for posting — each platform opens a pre-filled compose window you confirm manually.
             </div>
           </div>
-          {!posting&&<button onClick={onClose} style={{background:"transparent",color:"#6B8FAD",border:"none",cursor:"pointer",fontSize:"22px",lineHeight:1}}>×</button>}
+          {!posting&&<button onClick={onClose} style={{background:"transparent",color:T.textSub,border:"none",cursor:"pointer",fontSize:"22px",lineHeight:1}}>×</button>}
         </div>
 
         {/* Queue items */}
         <div style={{flex:1,overflowY:"auto",padding:"16px 20px",display:"flex",flexDirection:"column",gap:"12px"}}>
           {localQueue.length === 0 && (
-            <div style={{textAlign:"center",padding:"40px",color:"#4A6A8A",fontSize:"14px"}}>Queue is empty. Add posts using the "+ Queue" buttons.</div>
+            <div style={{textAlign:"center",padding:"40px",color:T.textSub,fontSize:"14px"}}>Queue is empty. Add posts using the "+ Queue" buttons.</div>
           )}
           {localQueue.map((item, i) => {
             const pCfg = ALL_PLATFORMS.find(p=>p.key===item.platformKey);
@@ -1191,13 +1219,13 @@ function BatchConfirmModal({queue, events, settings, onUpdateText, onRemove, onC
                   <div style={{width:"24px",height:"24px",borderRadius:"6px",background:(pCfg&&pCfg.color),color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"11px",flexShrink:0}}>{(pCfg&&pCfg.icon)}</div>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:"13px",fontWeight:"bold",color:(pCfg&&pCfg.color)}}>{(pCfg&&pCfg.label)}</div>
-                    <div style={{fontSize:"11px",color:"#6B8FAD",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.eventTitle} · {fmtDate(item.eventDate)}</div>
+                    <div style={{fontSize:"11px",color:T.textSub,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.eventTitle} · {fmtDate(item.eventDate)}</div>
                   </div>
                   <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
-                    <span style={{fontSize:"11px",color:charOver?"#F87171":item.text.length>(pCfg&&pCfg.charLimit)*0.9?"#FFCD00":"#4A6A8A"}}>{item.text.length}</span>
+                    <span style={{fontSize:"11px",color:charOver?"#F87171":item.text.length>(pCfg&&pCfg.charLimit)*0.9?"#FF9500":T.textSub}}>{item.text.length}</span>
                     {status==="done"&&<span style={{fontSize:"13px",color:"#4ADE80"}}>✅ Posted</span>}
                     {status==="error"&&<span style={{fontSize:"13px",color:"#F87171"}}>❌ Error</span>}
-                    {!status&&!posting&&<button onClick={()=>remove(item.eventId,item.platformKey)} style={{background:"transparent",color:"#4A6A8A",border:"none",cursor:"pointer",fontSize:"16px",lineHeight:1,padding:"2px"}}>×</button>}
+                    {!status&&!posting&&<button onClick={()=>remove(item.eventId,item.platformKey)} style={{background:"transparent",color:T.textSub,border:"none",cursor:"pointer",fontSize:"16px",lineHeight:1,padding:"2px"}}>×</button>}
                   </div>
                 </div>
                 {/* Editable text */}
@@ -1207,7 +1235,7 @@ function BatchConfirmModal({queue, events, settings, onUpdateText, onRemove, onC
                     onChange={e=>updateText(item.eventId, item.platformKey, e.target.value)}
                     disabled={posting}
                     rows={4}
-                    style={{width:"100%",background:"transparent",border:"none",borderBottom:charOver?`1px solid #F8717133`:"none",color:"#C8D8E8",fontSize:"12px",lineHeight:"1.6",padding:"12px 16px",resize:"vertical",fontFamily:"Georgia,serif",boxSizing:"border-box",opacity:posting?0.6:1}}
+                    style={{width:"100%",background:"transparent",border:"none",borderBottom:charOver?`1px solid #F8717133`:"none",color:"#C8D8E8",fontSize:"12px",lineHeight:"1.6",padding:"12px 16px",resize:"vertical",fontFamily:"-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif",boxSizing:"border-box",opacity:posting?0.6:1}}
                   />
                 )}
                 {charOver&&!status&&<div style={{padding:"4px 16px 8px",fontSize:"11px",color:"#F87171"}}>⚠️ Over X/Twitter 280 char limit by {item.text.length-280}</div>}
@@ -1217,17 +1245,17 @@ function BatchConfirmModal({queue, events, settings, onUpdateText, onRemove, onC
         </div>
 
         {/* Footer */}
-        <div style={{padding:"16px 24px",borderTop:"1px solid #1E3A5F",display:"flex",gap:"10px",justifyContent:"space-between",alignItems:"center"}}>
-          <div style={{fontSize:"12px",color:"#4A6A8A"}}>
+        <div style={{padding:"16px 24px",borderTop:"0.5px solid "+T.border,display:"flex",gap:"10px",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{fontSize:"12px",color:T.textSub}}>
             {started ? `${Object.values(results).filter(r=>r==="done").length}/${localQueue.length} posted` : `${localQueue.length} post${localQueue.length!==1?"s":""} ready to send`}
           </div>
           <div style={{display:"flex",gap:"10px"}}>
-            {!posting&&<button onClick={onClose} style={{background:"transparent",color:"#6B8FAD",border:"1px solid #1E3A5F",borderRadius:"8px",padding:"9px 20px",cursor:"pointer",fontSize:"13px"}}>{allDone?"Close":"Cancel"}</button>}
+            {!posting&&<button onClick={onClose} style={{background:"transparent",color:T.btnGhostText,border:"0.5px solid "+T.btnGhostBorder,borderRadius:"8px",padding:"9px 20px",cursor:"pointer",fontSize:"13px"}}>{allDone?"Close":"Cancel"}</button>}
             {!allDone&&(
               <button onClick={postAll} disabled={posting||localQueue.length===0||localQueue.some(q=>q.platformKey==="twitter"&&q.text.length>280)}
                 style={{
-                  background:posting||localQueue.length===0?"#1E3A5F":"linear-gradient(135deg,#22C55E,#16A34A)",
-                  color:posting||localQueue.length===0?"#4A6A8A":"#fff",
+                  background:posting||localQueue.length===0?T.btnGhost:`${T.btnPrimary}`,
+                  color:posting||localQueue.length===0?T.textSub:"#fff",
                   border:"none",borderRadius:"8px",padding:"9px 28px",
                   cursor:posting||localQueue.length===0?"not-allowed":"pointer",
                   fontSize:"13px",fontWeight:"bold",display:"flex",alignItems:"center",gap:"8px",
@@ -1289,12 +1317,12 @@ function RecapCopyBtn({text, T}) {
 }
 
 
-// ── Platform preview components ───────────────────────────────────────────────
+// ── Platform preview components ─────────────────────────────────────────────
 function LinkedInPreview({text}) {
   return (
     <div style={{background:"#fff",borderRadius:"8px",fontFamily:"'-apple-system',sans-serif",overflow:"hidden",border:"1px solid #e0e0e0"}}>
       <div style={{padding:"12px 16px",display:"flex",gap:"10px",alignItems:"center"}}>
-        <div style={{width:"48px",height:"48px",borderRadius:"50%",background:"linear-gradient(135deg,#FFCD00,#00205B)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:"bold",fontSize:"16px"}}>A</div>
+        <div style={{width:"44px",height:"44px",borderRadius:"12px",background:T.bgCardAlt,border:"0.5px solid "+T.border,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:T.accent,fontWeight:"700",fontSize:"15px"}}>A</div>
         <div>
           <div style={{fontWeight:"600",color:"#000",fontSize:"14px"}}>Your Org</div>
           <div style={{color:"#666",fontSize:"12px"}}>Australian American Chamber of Commerce</div>
@@ -1316,7 +1344,7 @@ function TwitterPreview({text}) {
   return (
     <div style={{background:"#fff",borderRadius:"12px",fontFamily:"'-apple-system',sans-serif",padding:"16px",border:"1px solid #eff3f4"}}>
       <div style={{display:"flex",gap:"12px"}}>
-        <div style={{width:"40px",height:"40px",borderRadius:"50%",background:"linear-gradient(135deg,#FFCD00,#00205B)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:"bold"}}>A</div>
+        <div style={{width:"40px",height:"40px",borderRadius:"50%",background:T.accent,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:"bold"}}>A</div>
         <div style={{flex:1}}>
           <div style={{display:"flex",gap:"6px",alignItems:"baseline",marginBottom:"4px"}}>
             <span style={{fontWeight:"700",color:"#0F1419",fontSize:"15px"}}>Your Org</span>
@@ -1342,7 +1370,7 @@ function FacebookPreview({text}) {
   return (
     <div style={{background:"#fff",borderRadius:"8px",fontFamily:"Helvetica,Arial,sans-serif",overflow:"hidden",border:"1px solid #ddd"}}>
       <div style={{padding:"12px 16px",display:"flex",gap:"10px",alignItems:"center"}}>
-        <div style={{width:"40px",height:"40px",borderRadius:"50%",background:"linear-gradient(135deg,#FFCD00,#00205B)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:"bold"}}>A</div>
+        <div style={{width:"40px",height:"40px",borderRadius:"50%",background:T.accent,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:"bold"}}>A</div>
         <div>
           <div style={{fontWeight:"600",color:"#050505",fontSize:"14px"}}>Your Org</div>
           <div style={{color:"#65676B",fontSize:"12px",display:"flex",alignItems:"center",gap:"4px"}}>Just now · <span>🌐</span></div>
@@ -1366,12 +1394,12 @@ function InstagramPreview({text}) {
     <div style={{background:"#fff",borderRadius:"8px",fontFamily:"-apple-system,sans-serif",overflow:"hidden",border:"1px solid #dbdbdb",maxWidth:"400px",margin:"0 auto"}}>
       <div style={{padding:"10px 12px",display:"flex",alignItems:"center",gap:"10px",borderBottom:"1px solid #dbdbdb"}}>
         <div style={{width:"32px",height:"32px",borderRadius:"50%",background:"linear-gradient(135deg,#833AB4,#FD1D1D,#F77737)",padding:"2px",display:"flex",alignItems:"center",justifyContent:"center"}}>
-          <div style={{width:"100%",height:"100%",borderRadius:"50%",background:"linear-gradient(135deg,#FFCD00,#00205B)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:"bold",fontSize:"12px"}}>A</div>
+          <div style={{width:"100%",height:"100%",borderRadius:"50%",background:T.accent,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:"bold",fontSize:"12px"}}>A</div>
         </div>
         <span style={{fontWeight:"600",color:"#262626",fontSize:"14px"}}>aacctexas</span>
         <span style={{marginLeft:"auto",color:"#262626",fontSize:"14px",fontWeight:"600",color:"#0095F6",cursor:"pointer"}}>Follow</span>
       </div>
-      <div style={{background:"linear-gradient(135deg,#00205B,#FFCD00)",height:"200px",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:"32px"}}>🦘🇦🇺🤠</div>
+      <div style={{background:"linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045)",height:"200px",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:"32px"}}>🦘🇦🇺🤠</div>
       <div style={{padding:"12px"}}>
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:"8px"}}>
           <div style={{display:"flex",gap:"14px",fontSize:"24px"}}>❤️ 💬 ✈️</div>
@@ -1388,41 +1416,38 @@ function InstagramPreview({text}) {
 
 // ── Empty state ───────────────────────────────────────────────────────────────
 function EmptyState({icon,msg,sub}) {
+  const _esTheme = localStorage.getItem("sma-theme-v1"); const _esDark = _esTheme===null||_esTheme==="dark"; const T = _esDark ? DARK : LIGHT;
   return (
-    <div style={{textAlign:"center",padding:"60px 20px",border:"1px dashed #1E3A5F",borderRadius:"14px"}}>
-      <div style={{fontSize:"48px",marginBottom:"12px"}}>{icon}</div>
-      <div style={{fontSize:"17px",color:"#93B4D4",marginBottom:"6px"}}>{msg}</div>
-      <div style={{fontSize:"13px",color:"#4A6A8A"}}>{sub}</div>
+    <div style={{textAlign:"center",padding:"60px 20px",border:"0.5px dashed "+T.border,borderRadius:"14px"}}>
+      <div style={{fontSize:"40px",marginBottom:"12px"}}>{icon}</div>
+      <div style={{fontSize:"15px",color:T.text,marginBottom:"6px",fontWeight:"500"}}>{msg}</div>
+      {sub&&<div style={{fontSize:"13px",color:T.textSub}}>{sub}</div>}
     </div>
   );
 }
-
-// ═════════════════════════════════════════════════════════════════════════════
-// EVENT CARD
-// ═════════════════════════════════════════════════════════════════════════════
 function EventCard({T,event,post,editedPost,isPast,isExpanded,isGenerating,onGenerate,onToggle,onDelete,onUpdateText,onSaveEdits,onOpenModal,activePlatforms,onAddToQueue,onIsQueued}) {
   const color=TYPE_COLOR[event.type]||TYPE_COLOR.Other;
   const hasEdits = post && editedPost && (activePlatforms||ALL_PLATFORMS).some(p=> editedPost[p.key] && editedPost[p.key]!==post[p.key]);
   return (
-    <div style={{background:isPast?"rgba(0,0,0,.15)":"rgba(0,20,60,.5)",border:`1px solid ${isPast?"#162840":"#1E3A5F"}`,borderLeft:`4px solid ${isPast?"#2A4A6A":color}`,borderRadius:"12px",marginBottom:"10px",opacity:isPast?0.72:1}}>
+    <div style={{background:T?T.bgCard:"#fff",border:"0.5px solid "+(T?T.border:"rgba(0,0,0,.1)"),borderLeft:`3px solid ${isPast?(T&&T.border||"#ccc"):color}`,borderRadius:"12px",marginBottom:"8px",opacity:isPast?0.72:1,boxShadow:(!T||!T.bgHero||T.bgHero.includes("F2F2F7"))?"0 1px 3px rgba(0,0,0,.06)":"none"}}>
       <div style={{padding:"16px 20px",display:"flex",alignItems:"flex-start",gap:"12px",flexWrap:"wrap"}}>
         {/* Date badge */}
-        <div style={{flexShrink:0,background:T?T.bgCard:"rgba(0,48,143,.4)",border:"1px solid "+(T?T.border:"#1E3A5F"),borderRadius:"8px",padding:"8px 12px",textAlign:"center",minWidth:"52px"}}>
-          <div style={{fontSize:"10px",color:"#FFCD00",textTransform:"uppercase",letterSpacing:"1px"}}>{event.date?localDate(event.date).toLocaleDateString("en-US",{month:"short"}):"—"}</div>
-          <div style={{fontSize:"22px",fontWeight:"bold",color:(T?T.text:"#E2D9C5"),lineHeight:1}}>{event.date?localDate(event.date).getDate():"—"}</div>
+        <div style={{flexShrink:0,background:T?T.bgCardAlt:"#f2f2f7",border:"0.5px solid "+(T?T.border:"rgba(0,0,0,.1)"),borderRadius:"10px",padding:"8px 12px",textAlign:"center",minWidth:"52px"}}>
+          <div style={{fontSize:"10px",color:T.accent,textTransform:"uppercase",letterSpacing:".08em"}}>{event.date?localDate(event.date).toLocaleDateString("en-US",{month:"short"}):"—"}</div>
+          <div style={{fontSize:"22px",fontWeight:"bold",color:(T?T.text:T.text),lineHeight:1}}>{event.date?localDate(event.date).getDate():"—"}</div>
         </div>
         {/* Info */}
         <div style={{flex:1,minWidth:"180px"}}>
           <div style={{display:"flex",alignItems:"center",gap:"6px",flexWrap:"wrap",marginBottom:"5px"}}>
             <span style={{background:color+"22",color:color,fontSize:"10px",padding:"2px 8px",borderRadius:"4px",fontWeight:"bold",letterSpacing:"1px",textTransform:"uppercase"}}>{event.type}</span>
             {isPast&&<span style={{background:"#14532D22",color:"#4ADE80",fontSize:"10px",padding:"2px 8px",borderRadius:"4px"}}>✅ Past</span>}
-            {post&&<span style={{background:"#FFCD0022",color:"#FFCD00",fontSize:"10px",padding:"2px 8px",borderRadius:"4px"}}>✍️ Posts ready</span>}
+            {post&&<span style={{background:"rgba(0,113,227,.1)",color:T.accent,fontSize:"10px",padding:"2px 8px",borderRadius:"20px"}}>✍️ Posts ready</span>}
             {hasEdits&&<span style={{background:"#F9731622",color:"#F97316",fontSize:"10px",padding:"2px 8px",borderRadius:"4px"}}>● Unsaved edits</span>}
             {event.registration==="Closed"&&<span style={{background:"#7F1D1D22",color:"#F87171",fontSize:"10px",padding:"2px 8px",borderRadius:"4px"}}>🔒 Reg. Closed</span>}
             {event.registration==="Open"&&<span style={{background:"#14532D22",color:"#4ADE80",fontSize:"10px",padding:"2px 8px",borderRadius:"4px"}}>✅ Reg. Open</span>}
           </div>
-          <div style={{fontSize:"17px",fontWeight:"bold",color:(T?T.text:"#E2D9C5"),lineHeight:"1.3"}}>{event.title}</div>
-          <div style={{fontSize:"12px",color:(T?T.textSub:"#6B8FAD"),marginTop:"4px",lineHeight:"1.5"}}>
+          <div style={{fontSize:"17px",fontWeight:"bold",color:(T?T.text:T.text),lineHeight:"1.3"}}>{event.title}</div>
+          <div style={{fontSize:"12px",color:(T?T.textSub:T.textSub),marginTop:"4px",lineHeight:"1.5"}}>
             {event.starts&&<span>⏰ {event.starts}</span>}
             {event.venue&&<span> · 📍 {event.venue}</span>}
             {event.address&&<div style={{marginTop:"2px",fontSize:"11px"}}>📮 {event.address}</div>}
@@ -1431,22 +1456,22 @@ function EventCard({T,event,post,editedPost,isPast,isExpanded,isGenerating,onGen
           {event.url&&<a href={event.url} target="_blank" rel="noopener noreferrer" style={{fontSize:"11px",color:"#3B82F6",marginTop:"4px",display:"inline-block"}}>🔗 View event →</a>}
         </div>
         {/* Event image thumbnail */}
-        <div style={{flexShrink:0,width:"90px",height:"68px",borderRadius:"8px",overflow:"hidden",border:"1px solid "+(T?T.border:"#1E3A5F")}}>
+        <div style={{flexShrink:0,width:"90px",height:"68px",borderRadius:"8px",overflow:"hidden",border:"0.5px solid "+(T?T.border:"rgba(0,0,0,.1)")}}>
             <img src={event.imageUrl} alt={event.title} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
           </div>
         {/* Actions */}
         <div style={{display:"flex",flexDirection:"column",gap:"6px",flexShrink:0}}>
-          {!isPast&&<button onClick={onGenerate} disabled={isGenerating} style={{background:isGenerating?"#1E3A5F":post?"rgba(255,205,0,.1)":"linear-gradient(135deg,#00308F,#001A5F)",color:isGenerating?"#4A6A8A":post?"#FFCD00":"#93B4D4",border:`1px solid ${post?"#FFCD0033":"#1E3A5F"}`,borderRadius:"7px",padding:"7px 13px",cursor:isGenerating?"not-allowed":"pointer",fontSize:"12px",fontWeight:"bold",whiteSpace:"nowrap"}}>
-            {isGenerating?<span style={{animation:"pulse 1s infinite"}}>⏳ Generating…</span>:post?"✍️ Regenerate":"✍️ Generate Posts"}
+          {!isPast&&<button onClick={()=>onGenerate()} disabled={isGenerating} style={{background:T?T.btnGhost:"rgba(0,0,0,.05)",color:T?T.textSub:"#6E6E73",border:"0.5px solid "+(T?T.btnGhostBorder:"rgba(0,0,0,.1)"),borderRadius:"8px",padding:"7px 13px",cursor:isGenerating?"not-allowed":"pointer",fontSize:"12px",fontWeight:"600",whiteSpace:"nowrap",opacity:isGenerating?0.5:1}}>
+            {isGenerating?"⏳ Generating…":post?"↺ Regenerate":"✦ Generate Posts"}
           </button>}
-          {post&&<button onClick={onToggle} style={{background:"transparent",color:"#FFCD00",border:"1px solid #FFCD0033",borderRadius:"7px",padding:"7px 13px",cursor:"pointer",fontSize:"12px"}}>{isExpanded?"▲ Collapse":"▼ Edit & Post"}</button>}
+          {post&&<button onClick={onToggle} style={{background:T?T.btnPrimary:"#0071E3",color:T?T.btnPrimaryText:"#fff",border:"none",borderRadius:"8px",padding:"7px 13px",cursor:"pointer",fontSize:"12px",fontWeight:"600"}}>{isExpanded?"▲ Close":"Edit & Post"}</button>}
           <button onClick={onDelete} style={{background:"transparent",color:"#7F1D1D",border:"1px solid #3A1A1A",borderRadius:"7px",padding:"7px 10px",cursor:"pointer",fontSize:"12px"}}>🗑️</button>
         </div>
       </div>
 
       {/* Expanded editor */}
       {isExpanded&&post&&(
-        <div style={{borderTop:"1px solid "+(T?T.border:"#1E3A5F"),padding:"16px 20px"}}>
+        <div style={{borderTop:"0.5px solid "+(T?T.border:"rgba(0,0,0,.1)"),padding:"16px 20px"}}>
           {/* Full event image */}
           <img src={event.imageUrl} alt={event.title} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
           <PostEditor T={T} post={post} editedPost={editedPost} eventId={event.id} event={event} onUpdateText={onUpdateText} onSaveEdits={onSaveEdits} onOpenModal={onOpenModal} onAddToQueue={onAddToQueue} onIsQueued={onIsQueued} activePlatforms={activePlatforms}/>
@@ -1461,13 +1486,13 @@ function EventCard({T,event,post,editedPost,isPast,isExpanded,isGenerating,onGen
 // ═════════════════════════════════════════════════════════════════════════════
 function PostCard({T,event,post,editedPost,onUpdateText,onSaveEdits,onOpenModal,activePlatforms,onAddToQueue,onIsQueued}) {
   return (
-    <div style={{background:T?T.bgCard:"rgba(0,20,60,.5)",border:"1px solid "+(T?T.border:"#1E3A5F"),borderRadius:"12px",marginBottom:"16px",overflow:"hidden"}}>
-      <div style={{background:T?T.bgCardAlt:"rgba(0,48,143,.3)",padding:"12px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"8px"}}>
+    <div style={{background:T?T.bgCard:"#fff",border:"0.5px solid "+(T?T.border:"rgba(0,0,0,.1)"),borderRadius:"12px",marginBottom:"8px",overflow:"hidden"}}>
+      <div style={{background:T?T.bgCardAlt:T&&T.bgCardAlt,padding:"12px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"8px"}}>
         <div>
-          <div style={{fontWeight:"bold",color:"#FFCD00",fontSize:"15px"}}>{event.title}</div>
-          <div style={{fontSize:"12px",color:(T?T.textSub:"#6B8FAD")}}>📅 {fmtDate(event.date)}</div>
+          <div style={{fontWeight:"bold",color:T.text,fontSize:"15px",fontWeight:"600"}}>{event.title}</div>
+          <div style={{fontSize:"12px",color:(T?T.textSub:T.textSub)}}>📅 {fmtDate(event.date)}</div>
         </div>
-        <div style={{fontSize:"11px",color:"#4A6A8A"}}>Generated {new Date(post.generatedAt).toLocaleDateString()}</div>
+        <div style={{fontSize:"11px",color:T.textSub}}>Generated {new Date(post.generatedAt).toLocaleDateString()}</div>
       </div>
       <div style={{padding:"16px 20px"}}>
         <img src={event.imageUrl} alt={event.title} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
@@ -1479,7 +1504,7 @@ function PostCard({T,event,post,editedPost,onUpdateText,onSaveEdits,onOpenModal,
 
 // ═════════════════════════════════════════════════════════════════════════════
 // POST EDITOR — editable textareas + Post buttons per platform
-// ═════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════════════
 function PostEditor({T,post, editedPost, eventId, event, onUpdateText, onSaveEdits, onOpenModal, onAddToQueue, onIsQueued, activePlatforms}) {
   const [dirty, setDirty] = useState(false);
 
@@ -1501,23 +1526,23 @@ function PostEditor({T,post, editedPost, eventId, event, onUpdateText, onSaveEdi
         const isEdited = currentText !== savedText;
         const overLimit = p.charLimit && currentText.length > p.charLimit;
         return (
-          <div key={p.key} style={{background:T?T.bgCardAlt:"rgba(0,0,0,.25)",borderRadius:"10px",border:`1px solid ${p.color}22`,overflow:"hidden"}}>
+          <div key={p.key} style={{background:T?T.bgCardAlt:T.bgCard,borderRadius:"10px",border:"0.5px solid "+(T?T.border:"rgba(0,0,0,.1)"),overflow:"hidden",marginBottom:"0"}}>
             {/* Platform header */}
-            <div style={{background:p.color+"18",padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:`1px solid ${p.color}22`}}>
+            <div style={{background:T?T.bgCard:"#fff",padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"0.5px solid "+(T?T.border:"rgba(0,0,0,.08)"),borderLeft:`3px solid ${p.color}`}}>
               <span style={{fontWeight:"bold",fontSize:"13px",color:p.color}}>{p.icon} {p.label}</span>
               <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
-                {p.charLimit&&<span style={{fontSize:"11px",color:overLimit?"#F87171":currentText.length>p.charLimit*.9?"#FFCD00":"#4ADE80"}}>{currentText.length}{p.charLimit?`/${p.charLimit}`:""}</span>}
+                {p.charLimit&&<span style={{fontSize:"11px",color:overLimit?"#F87171":currentText.length>p.charLimit*.9?T.textSub:T.text}}>{currentText.length}{p.charLimit?`/${p.charLimit}`:""}</span>}
                 {isEdited&&<span style={{fontSize:"10px",color:"#F97316",background:"#F9731622",padding:"1px 6px",borderRadius:"4px"}}>edited</span>}
                 {/* QUEUE + POST NOW BUTTONS */}
                 <button
                   onClick={()=>onAddToQueue && onAddToQueue(p.key)}
                   title={onIsQueued && onIsQueued(p.key) ? "Already in queue — click to update" : "Add to batch queue"}
                   style={{
-                    background: onIsQueued && onIsQueued(p.key) ? "#14532D" : "rgba(0,0,0,.3)",
-                    color: onIsQueued && onIsQueued(p.key) ? "#4ADE80" : "#93B4D4",
-                    border:`1px solid ${onIsQueued && onIsQueued(p.key) ? "#4ADE80" : "#2A4A7F"}`,
+                    background: onIsQueued && onIsQueued(p.key) ? (T?T.success:"rgba(52,199,89,.1)") : (T?T.btnGhost:"rgba(0,0,0,.05)"),
+                    color: onIsQueued && onIsQueued(p.key) ? (T?T.successText:"#1D7A3A") : (T?T.textSub:"#6E6E73"),
+                    border:"0.5px solid "+(onIsQueued && onIsQueued(p.key) ? "rgba(52,199,89,.3)" : (T?T.btnGhostBorder:"rgba(0,0,0,.1)")),
                     borderRadius:"6px", padding:"5px 10px", cursor:"pointer",
-                    fontSize:"12px", fontWeight:"bold", display:"flex", alignItems:"center", gap:"4px",
+                    fontSize:"12px", fontWeight:"600", display:"flex", alignItems:"center", gap:"4px",
                   }}
                 >
                   {onIsQueued && onIsQueued(p.key) ? "✓ Queued" : "+ Queue"}
@@ -1525,11 +1550,10 @@ function PostEditor({T,post, editedPost, eventId, event, onUpdateText, onSaveEdi
                 <button
                   onClick={()=>onOpenModal(p.key)}
                   style={{
-                    background:`linear-gradient(135deg,${p.color},${p.color}CC)`,
+                    background:p.color,
                     color:"#fff",border:"none",borderRadius:"6px",
                     padding:"5px 12px",cursor:"pointer",
-                    fontSize:"12px",fontWeight:"bold",
-                    boxShadow:`0 2px 8px ${p.color}44`,
+                    fontSize:"12px",fontWeight:"600",
                     display:"flex",alignItems:"center",gap:"4px",
                   }}
                 >
@@ -1545,9 +1569,9 @@ function PostEditor({T,post, editedPost, eventId, event, onUpdateText, onSaveEdi
                 width:"100%",boxSizing:"border-box",
                 minHeight:p.key==="twitter"?"80px":"120px",
                 background:"transparent",border:"none",
-                color:"#C8D8E8",fontSize:"13px",lineHeight:"1.7",
+                color:T?T.text:"#1D1D1F",fontSize:"13px",lineHeight:"1.7",
                 padding:"12px 14px",resize:"vertical",
-                fontFamily:"Georgia,'Times New Roman',serif",
+                fontFamily:"-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif",
               }}
             />
             {overLimit&&<div style={{padding:"4px 14px 8px",fontSize:"11px",color:"#F87171"}}>⚠️ Over {p.label} character limit by {currentText.length-p.charLimit} chars</div>}
@@ -1557,7 +1581,7 @@ function PostEditor({T,post, editedPost, eventId, event, onUpdateText, onSaveEdi
       {/* Save edits button */}
       {dirty&&(
         <div style={{display:"flex",justifyContent:"flex-end"}}>
-          <button onClick={handleSave} style={{background:"linear-gradient(135deg,#22C55E,#16A34A)",color:"#fff",border:"none",borderRadius:"8px",padding:"8px 20px",cursor:"pointer",fontSize:"13px",fontWeight:"bold"}}>
+          <button onClick={handleSave} style={{background:T?T.btnPrimary:"#0071E3",color:T?T.btnPrimaryText:"#fff",border:"none",borderRadius:"8px",padding:"8px 20px",cursor:"pointer",fontSize:"13px",fontWeight:"600"}}>
             💾 Save Edits
           </button>
         </div>
@@ -1570,6 +1594,7 @@ function PostEditor({T,post, editedPost, eventId, event, onUpdateText, onSaveEdi
 // EXPORT MODAL
 // ═════════════════════════════════════════════════════════════════════════════
 function ExportModal({events, posts, editedPosts, onClose, toast, activePlatforms}) {
+  const _emTheme = localStorage.getItem("sma-theme-v1"); const _emDark = _emTheme===null||_emTheme==="dark"; const T = _emDark ? DARK : LIGHT;
   const eventsWithPosts = events.filter(e => posts[e.id]);
   const [selected, setSelected] = useState(new Set(eventsWithPosts.map(e=>e.id)));
   const [fmt, setFmt] = useState("md");
@@ -1607,29 +1632,29 @@ function ExportModal({events, posts, editedPosts, onClose, toast, activePlatform
 
   return (
     <div style={{position:"fixed",inset:0,zIndex:1500,background:"rgba(0,0,0,.75)",display:"flex",alignItems:"center",justifyContent:"center",padding:"16px"}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div style={{background:"#0F1A30",border:"1px solid #1E3A5F",borderRadius:"16px",width:"100%",maxWidth:"520px",maxHeight:"90vh",overflow:"hidden",display:"flex",flexDirection:"column",animation:"modalIn .25s ease",boxShadow:"0 24px 64px rgba(0,0,0,.7)"}}>
+      <div style={{background:T.modalBg,border:"0.5px solid "+T.border,borderRadius:"16px",width:"100%",maxWidth:"520px",maxHeight:"90vh",overflow:"hidden",display:"flex",flexDirection:"column",animation:"modalIn .25s ease",boxShadow:"0 24px 64px rgba(0,0,0,.7)"}}>
         {/* Header */}
-        <div style={{padding:"16px 20px",borderBottom:"1px solid #1E3A5F",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{padding:"16px 20px",borderBottom:"0.5px solid "+T.border,display:"flex",alignItems:"center",justifyContent:"space-between",background:T.bgCard}}>
           <div>
-            <div style={{fontWeight:"bold",color:"#FFCD00",fontSize:"16px"}}>⬇️ Export Posts</div>
-            <div style={{fontSize:"12px",color:"#6B8FAD",marginTop:"2px"}}>Download to your computer — save anywhere you like</div>
+            <div style={{fontWeight:"bold",color:T.text,fontSize:"15px",fontWeight:"700"}}>⬇️ Export Posts</div>
+            <div style={{fontSize:"12px",color:T.textSub,marginTop:"2px"}}>Download to your computer — save anywhere you like</div>
           </div>
-          <button onClick={onClose} style={{background:"transparent",color:"#6B8FAD",border:"none",cursor:"pointer",fontSize:"20px",lineHeight:1,padding:"4px"}}>×</button>
+          <button onClick={onClose} style={{background:"transparent",color:T.textSub,border:"none",cursor:"pointer",fontSize:"20px",lineHeight:1,padding:"4px"}}>×</button>
         </div>
 
         <div style={{flex:1,overflowY:"auto",padding:"20px",display:"flex",flexDirection:"column",gap:"20px"}}>
           {/* Format picker */}
           <div>
-            <div style={{fontSize:"12px",color:"#6B8FAD",textTransform:"uppercase",letterSpacing:"1px",marginBottom:"10px"}}>Format</div>
+            <div style={{fontSize:"12px",color:T.textSub,textTransform:"uppercase",letterSpacing:"1px",marginBottom:"10px"}}>Format</div>
             <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
               {Object.entries(FMT_INFO).map(([key,info])=>(
-                <label key={key} onClick={()=>setFmt(key)} style={{display:"flex",alignItems:"flex-start",gap:"12px",padding:"12px 14px",background:fmt===key?"rgba(0,48,143,.4)":"rgba(0,0,0,.2)",border:`1px solid ${fmt===key?"#3B82F6":"#1E3A5F"}`,borderRadius:"10px",cursor:"pointer",transition:"all .15s"}}>
-                  <div style={{width:"18px",height:"18px",borderRadius:"50%",border:`2px solid ${fmt===key?"#3B82F6":"#2A4A7F"}`,background:fmt===key?"#3B82F6":"transparent",flexShrink:0,marginTop:"1px",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <label key={key} onClick={()=>setFmt(key)} style={{display:"flex",alignItems:"flex-start",gap:"12px",padding:"12px 14px",background:fmt===key?"rgba(0,48,143,.4)":"rgba(0,0,0,.2)",border:`1px solid ${fmt===key?T.accent:T.border}`,borderRadius:"10px",cursor:"pointer",transition:"all .15s"}}>
+                  <div style={{width:"18px",height:"18px",borderRadius:"50%",border:"2px solid "+(fmt===key?"#3B82F6":T.border),background:fmt===key?"#3B82F6":"transparent",flexShrink:0,marginTop:"1px",display:"flex",alignItems:"center",justifyContent:"center"}}>
                     {fmt===key&&<div style={{width:"7px",height:"7px",borderRadius:"50%",background:"#fff"}}/>}
                   </div>
                   <div>
-                    <div style={{fontSize:"14px",color:"#E2D9C5",fontWeight:fmt===key?"bold":"normal"}}>{info.icon} {info.label}</div>
-                    <div style={{fontSize:"12px",color:"#6B8FAD",marginTop:"3px"}}>{info.desc}</div>
+                    <div style={{fontSize:"14px",color:T.text,fontWeight:fmt===key?"bold":"normal"}}>{info.icon} {info.label}</div>
+                    <div style={{fontSize:"12px",color:T.textSub,marginTop:"3px"}}>{info.desc}</div>
                   </div>
                 </label>
               ))}
@@ -1639,23 +1664,23 @@ function ExportModal({events, posts, editedPosts, onClose, toast, activePlatform
           {/* Event selector */}
           <div>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"10px"}}>
-              <div style={{fontSize:"12px",color:"#6B8FAD",textTransform:"uppercase",letterSpacing:"1px"}}>Events ({selected.size}/{eventsWithPosts.length} selected)</div>
+              <div style={{fontSize:"12px",color:T.textSub,textTransform:"uppercase",letterSpacing:"1px"}}>Events ({selected.size}/{eventsWithPosts.length} selected)</div>
               <button onClick={toggleAll} style={{background:"transparent",color:"#3B82F6",border:"none",cursor:"pointer",fontSize:"12px",textDecoration:"underline"}}>
                 {selected.size===eventsWithPosts.length?"Deselect all":"Select all"}
               </button>
             </div>
             {eventsWithPosts.length===0 ? (
-              <div style={{color:"#4A6A8A",fontSize:"13px",fontStyle:"italic"}}>No posts generated yet.</div>
+              <div style={{color:T.textSub,fontSize:"13px",fontStyle:"italic"}}>No posts generated yet.</div>
             ) : (
               <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>
                 {eventsWithPosts.map(ev=>(
-                  <label key={ev.id} onClick={()=>toggle(ev.id)} style={{display:"flex",alignItems:"center",gap:"10px",padding:"10px 14px",background:selected.has(ev.id)?"rgba(0,48,143,.25)":"rgba(0,0,0,.2)",border:`1px solid ${selected.has(ev.id)?"#1E3A5F22":"#1E3A5F"}`,borderRadius:"8px",cursor:"pointer"}}>
-                    <div style={{width:"16px",height:"16px",borderRadius:"3px",border:`2px solid ${selected.has(ev.id)?"#3B82F6":"#2A4A7F"}`,background:selected.has(ev.id)?"#3B82F6":"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  <label key={ev.id} onClick={()=>toggle(ev.id)} style={{display:"flex",alignItems:"center",gap:"10px",padding:"10px 14px",background:selected.has(ev.id)?"rgba(0,48,143,.25)":"rgba(0,0,0,.2)",border:"0.5px solid "+T.border,borderRadius:"8px",cursor:"pointer"}}>
+                    <div style={{width:"16px",height:"16px",borderRadius:"3px",border:"2px solid "+(selected.has(ev.id)?"#3B82F6":T.border),background:selected.has(ev.id)?"#3B82F6":"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
                       {selected.has(ev.id)&&<span style={{color:"#fff",fontSize:"10px",lineHeight:1}}>✓</span>}
                     </div>
                     <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:"13px",color:"#E2D9C5",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.title}</div>
-                      <div style={{fontSize:"11px",color:"#6B8FAD"}}>{fmtDate(ev.date)}</div>
+                      <div style={{fontSize:"13px",color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.title}</div>
+                      <div style={{fontSize:"11px",color:T.textSub}}>{fmtDate(ev.date)}</div>
                     </div>
                     <div style={{fontSize:"11px",color:"#4ADE80",flexShrink:0}}>
                       {(activePlatforms||ALL_PLATFORMS).filter(p=>(posts[ev.id]&&posts[ev.id][p.key])).length} platforms
@@ -1667,15 +1692,15 @@ function ExportModal({events, posts, editedPosts, onClose, toast, activePlatform
           </div>
 
           {/* Tip */}
-          <div style={{background:"rgba(255,205,0,.07)",border:"1px solid #FFCD0022",borderRadius:"8px",padding:"12px 14px",fontSize:"12px",color:"#A89060",lineHeight:"1.6"}}>
-            💡 <strong style={{color:"#FFCD00"}}>Tip:</strong> Set Chrome's default download folder to save straight to a specific desktop folder — Chrome → Settings → Downloads → Change location.
+          <div style={{background:"rgba(0,113,227,.06)",border:"0.5px solid rgba(0,113,227,.15)",borderRadius:"8px",padding:"12px 14px",fontSize:"12px",color:"#A89060",lineHeight:"1.6"}}>
+            💡 <strong style={{color:T.accent}}>Tip:</strong> Set Chrome's default download folder to save straight to a specific desktop folder — Chrome → Settings → Downloads → Change location.
           </div>
         </div>
 
         {/* Footer */}
-        <div style={{padding:"16px 20px",borderTop:"1px solid #1E3A5F",display:"flex",gap:"10px",justifyContent:"flex-end"}}>
-          <button onClick={onClose} style={{background:"transparent",color:"#6B8FAD",border:"1px solid #1E3A5F",borderRadius:"8px",padding:"9px 20px",cursor:"pointer",fontSize:"13px"}}>Cancel</button>
-          <button onClick={doExport} disabled={selected.size===0} style={{background:selected.size===0?"#1E3A5F":"linear-gradient(135deg,#FFCD00,#E6B800)",color:selected.size===0?"#4A6A8A":"#001A4D",border:"none",borderRadius:"8px",padding:"9px 22px",cursor:selected.size===0?"not-allowed":"pointer",fontSize:"13px",fontWeight:"bold"}}>
+        <div style={{padding:"16px 20px",borderTop:"0.5px solid "+T.border,display:"flex",gap:"10px",justifyContent:"flex-end"}}>
+          <button onClick={onClose} style={{background:"transparent",color:T.btnGhostText,border:"0.5px solid "+T.btnGhostBorder,borderRadius:"8px",padding:"9px 20px",cursor:"pointer",fontSize:"13px"}}>Cancel</button>
+          <button onClick={doExport} disabled={selected.size===0} style={{background:selected.size===0?T.btnGhost:T.btnPrimary,color:selected.size===0?T.textSub:T.btnPrimaryText,border:"none",borderRadius:"8px",padding:"9px 22px",cursor:selected.size===0?"not-allowed":"pointer",fontSize:"13px",fontWeight:"bold"}}>
             {exporting ? <span style={{animation:"pulse 1s infinite"}}>⏳ Fetching images…</span> : `⬇️ Download ${selected.size > 0 ? `(${selected.size} event${selected.size>1?"s":""})` : ""}`}
           </button>
         </div>
@@ -1700,4 +1725,4 @@ const KNOWN_EVENTS = [
 ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
 </script>
 </body>
-</html>
+</html
