@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-  <title>Social Media Assistant v1.8</title>
+  <title>Social Media Assistant v2.1</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -67,7 +67,7 @@ const LIGHT = {
   scanCard:"#FFFFFF",
 };
 const SK_THEME = "sma-theme-v1";
-const VERSION = "v1.9";
+const VERSION = "v2.1";
 
 const SK_EVENTS = "aacc-events-v3";
 const SK_POSTS  = "aacc-posts-v3";
@@ -570,6 +570,7 @@ function App() {
   // ── Batch queue: [{eventId, platformKey, text}]
   const [queue,       setQueue]       = useState([]);
   const [showBatch,   setShowBatch]   = useState(false);
+  const [postedPlatforms, setPostedPlatforms] = useState({});
 
   const toggleTheme = () => {
     const n = !isDark;
@@ -717,8 +718,16 @@ function App() {
   const generatePost = useCallback(async(event)=>{
     if (!settings.setupComplete) { setShowSettings(true); return; }
     setGenId(event.id);
+    const eventIsPast = isPast(event.date);
     const platformList = activePlatforms.map(p=>{
-      const limits={
+      const limits = eventIsPast ? {
+        linkedin:"MAX 1300 CHARS. Past-tense recap format:\n- Opening line: \"What a fantastic [event title]!\" or similar celebratory opener\n- 2-3 short paragraphs recapping highlights, atmosphere, and who attended\n- Key takeaways or memorable moments (emoji bullets: 🌟 ✨ 💡)\n- Thank attendees and tag/mention speakers or sponsors if known\n- End with a forward-looking CTA (next event, website URL)\n- 2-3 hashtags\nTone: warm, celebratory, professional.",
+        twitter:"HARD LIMIT: 260 CHARS. Past-tense recap. One punchy celebratory sentence (e.g. \"What a night! 🎉\") then the event URL on a new line. No hashtags unless under limit.",
+        facebook:"MAX 800 CHARS. Past-tense recap format:\n- Celebratory opening: \"What a great [event]!\"\n- 2 short paragraphs: recap of what happened + highlights\n- Thank attendees with ✅ bullet highlights\n- Forward-looking CTA line with event/org URL\n- 3-4 hashtags\nWarm, community tone.",
+        instagram:"MAX 1200 CHARS. Past-tense recap format:\n- Casual celebratory opener (e.g. \"Last night was absolutely brilliant! 🙌\")\n- 2-3 short paragraphs recapping the vibe and highlights\n- Bullet list of memorable moments (use * or emoji)\n- Tag the venue and thank attendees\n- CTA with URL for next event\n- 5-8 hashtags\nCasual, warm, community feel.",
+        email:"MAX 1500 CHARS. Past-tense thank-you/recap email: subject-ready opener thanking attendees, recap of event highlights, key moments, next event details or CTA with URL, warm sign-off.",
+        file:"MAX 2000 CHARS. Comprehensive past-tense recap: full event details, highlights, attendance, outcomes, next steps."
+      } : {
         linkedin:"MAX 1300 CHARS. Format:\n- Opening hook sentence\n- 2-3 short paragraphs with event details\n- Key info on separate lines using emoji bullets (📍 Venue, 📅 Date/Time, 🎟️ Registration)\n- 1-sentence CTA with the event URL\n- 2-3 hashtags at the end\nProfessional, engaging tone.",
         twitter:"HARD LIMIT: 260 CHARS MAXIMUM — count every character. Format: one punchy title/hook sentence, then the event URL on a new line. No hashtags unless under limit.",
         facebook:"MAX 800 CHARS. Format:\n- Exciting opening hook\n- 2 short paragraphs: what the event is + who should attend (use ✅ bullet lines)\n- Key info lines: 📍 Venue, 📅 Date, 🕐 Time\n- RSVP CTA line with event URL\n- 3-4 hashtags at the very end\nWarm, friendly, community tone.",
@@ -731,7 +740,8 @@ function App() {
     try {
       const orgName = settings.orgName || "";
       const hashtags = settings.hashtags || "";
-      const data=await callClaude([{role:"user",content:`Create social media posts for this event:\n\nTitle: ${event.title}\nDate: ${fmtDate(event.date)}${event.starts?" ("+event.starts+")":""}\nVenue: ${event.venue||""}${event.address?" — "+event.address:""}\nDescription: ${event.description||"Networking event."}\nType: ${event.type}\nRegistration: ${event.registration}\nURL: ${event.url}\n${orgName?"Organisation: "+orgName+"\n":""}\nWrite posts for these platforms. Return ONLY this JSON (no markdown):\n{\n  ${platformList}\n}\n${hashtags?"Include these hashtags where appropriate: "+hashtags+"\n":""}IMPORTANT: Each post MUST include the event URL (${event.url}) as a link back to the original event page. Follow the format instructions precisely for each platform.`}],
+      const promptVerb = eventIsPast ? "Write past-tense RECAP social media posts celebrating this event that already happened" : "Create social media posts for this upcoming event";
+      const data=await callClaude([{role:"user",content:`${promptVerb}:\n\nTitle: ${event.title}\nDate: ${fmtDate(event.date)}${event.starts?" ("+event.starts+")":""}\nVenue: ${event.venue||""}${event.address?" — "+event.address:""}\nDescription: ${event.description||"Networking event."}\nType: ${event.type}\nRegistration: ${event.registration}\nURL: ${event.url}\n${orgName?"Organisation: "+orgName+"\n":""}\n${eventIsPast?"This event has ALREADY HAPPENED. All posts must be written in PAST TENSE as a celebration/recap. Do NOT use future tense or \"join us\" language.\n":""}Write posts for these platforms. Return ONLY this JSON (no markdown):\n{\n  ${platformList}\n}\n${hashtags?"Include these hashtags where appropriate: "+hashtags+"\n":""}IMPORTANT: Each post MUST include the event URL (${event.url}). Follow the format instructions precisely for each platform.`}],
         "Return ONLY valid JSON. No markdown fences. No explanation.", settings);
       const text=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
       const match=text.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/);
@@ -832,6 +842,7 @@ const generateRecap = async () => {
       {/* Modals */}
       {modal&&<PreviewModal modal={modal} settings={settings} onClose={()=>setModal(null)}
         onUpdateText={(t)=>{ setModal(m=>({...m,text:t,editText:t})); updateEditedPost(modal.event.id, modal.platformKey, t); }}
+        onPosted={(pKey)=>{ setPostedPlatforms(prev=>({...prev,[modal.event.id+":"+pKey]:true})); }}
       />}
       {showExport&&<ExportModal events={events} posts={posts} editedPosts={editedPosts} onClose={()=>setShowExport(false)} toast={toast} activePlatforms={activePlatforms}/>}
       {showBatch&&<BatchConfirmModal queue={queue} events={events} settings={settings}
@@ -899,7 +910,17 @@ const generateRecap = async () => {
           <div style={{display:"flex",alignItems:"flex-start",gap:"16px",flexWrap:"wrap"}}>
             <div style={{flex:1,minWidth:"220px"}}>
               <div style={{fontWeight:"700",color:T.accent,fontSize:"14px",marginBottom:"5px"}}>🌐 Fetch Events</div>
-              <div style={{fontSize:"12px",color:T.textSub,lineHeight:"1.6"}}>Source: <code style={{color:T.text,background:T.bgCardAlt,padding:"1px 6px",borderRadius:"4px",fontSize:"11px"}}>{settings.eventSourceUrl||"not set"}</code></div>
+              <div style={{display:"flex",alignItems:"center",gap:"6px",marginTop:"4px"}}>
+                <span style={{fontSize:"12px",color:T.textSub,whiteSpace:"nowrap",flexShrink:0}}>Source:</span>
+                <input
+                  type="url"
+                  value={settings.eventSourceUrl||""}
+                  onChange={e=>setSettings(s=>({...s,eventSourceUrl:e.target.value}))}
+                  onBlur={e=>saveSettings({...settings,eventSourceUrl:e.target.value})}
+                  placeholder="https://www.aacc-texas.org/events.html#!event-list"
+                  style={{flex:1,fontSize:"12px",color:T.text,background:T.bgCardAlt,border:"0.5px solid "+T.border,borderRadius:"6px",padding:"4px 8px",fontFamily:"monospace",outline:"none",minWidth:0}}
+                />
+              </div>
               {scanStep&&<div style={{marginTop:"10px",fontSize:"13px",color:scanStep.startsWith("✅")?"#30D158":scanStep.startsWith("❌")?"#FF6961":T.textSub,background:T.bgCardAlt,padding:"8px 12px",borderRadius:"8px",lineHeight:"1.5"}}>{scanStep}</div>}
             </div>
             <div style={{flexShrink:0}}>
@@ -921,9 +942,26 @@ const generateRecap = async () => {
         </div>
 
         {/* Tabs */}
-        <div style={{display:"flex",gap:"0",borderBottom:"0.5px solid "+T.border,marginBottom:"20px",background:T.bgCard,borderRadius:"12px 12px 0 0",overflow:"hidden",boxShadow:isDark?"none":"0 1px 3px rgba(0,0,0,.04)"}}>
+        <div style={{display:"flex",gap:"2px",borderBottom:"1px solid "+(isDark?"rgba(255,255,255,.1)":"rgba(0,0,0,.1)"),marginBottom:"16px",background:isDark?"rgba(255,255,255,.03)":"rgba(0,0,0,.03)",borderRadius:"10px 10px 0 0",overflow:"visible",padding:"8px 8px 0",alignItems:"flex-end"}}>
           {[{id:"upcoming",label:`🗓️ Upcoming (${upcoming.length})`},{id:"past",label:`✅ Past (${past.length})`},{id:"posts",label:`✍️ Posts (${withPosts.length})`},{id:"recap",label:"🔁 Recap"}].map(t=>(
-            <button key={t.id} onClick={()=>setActiveTab(t.id)} style={{background:"transparent",color:activeTab===t.id?T.tabActive:T.textSub,border:"none",borderBottom:activeTab===t.id?"2px solid "+T.tabActiveBorder:"2px solid transparent",padding:"11px 18px",cursor:"pointer",fontSize:"13px",fontWeight:activeTab===t.id?"600":"400",fontFamily:"inherit",whiteSpace:"nowrap"}}>
+            <button key={t.id} onClick={()=>setActiveTab(t.id)} style={{
+              position:"relative",
+              background:activeTab===t.id?(isDark?"#2C2C2E":"#FFFFFF"):(isDark?"rgba(255,255,255,.04)":"rgba(0,0,0,.04)"),
+              color:activeTab===t.id?T.text:T.textSub,
+              border:"0.5px solid "+(activeTab===t.id?(isDark?"rgba(255,255,255,.12)":"rgba(0,0,0,.12)"):"transparent"),
+              borderBottom:activeTab===t.id?"none":"0.5px solid "+(isDark?"rgba(255,255,255,.08)":"rgba(0,0,0,.08)"),
+              borderRadius:"8px 8px 0 0",
+              padding:"9px 18px 11px",
+              marginBottom:activeTab===t.id?"-1px":"0",
+              cursor:"pointer",
+              fontSize:"13px",
+              fontWeight:activeTab===t.id?"600":"400",
+              fontFamily:"inherit",
+              whiteSpace:"nowrap",
+              zIndex:activeTab===t.id?2:1,
+              transition:"background .15s, color .15s",
+              boxShadow:activeTab===t.id?(isDark?"0 -1px 4px rgba(0,0,0,.3)":"0 -1px 4px rgba(0,0,0,.06)"):"none",
+            }}>
               {t.label}
             </button>
           ))}
@@ -935,15 +973,18 @@ const generateRecap = async () => {
             onDelete={()=>deleteEvent(ev.id)} onUpdateText={(pKey,val)=>updateEditedPost(ev.id,pKey,val)}
             onSaveEdits={()=>saveEditedPost(ev.id)} onOpenModal={(pKey)=>openModal(ev,pKey)}
             onAddToQueue={(pKey)=>addToQueue(ev,pKey)} onIsQueued={(pKey)=>isQueued(ev.id,pKey)}
+            onRecap={(url)=>{ setRecapUrl(url||""); setActiveTab("recap"); }}
           />)
         )}
         {activeTab==="past"&&(past.length===0?<EmptyState icon="📅" msg="No past events" sub="Events before today appear here."/>:
           past.map(ev=><EventCard key={ev.id} T={T} event={ev} post={posts[ev.id]} editedPost={editedPosts[ev.id]} isPast
-            isExpanded={expandedId===ev.id} isGenerating={false} activePlatforms={activePlatforms}
+            isExpanded={expandedId===ev.id} isGenerating={genId===ev.id} activePlatforms={activePlatforms}
+            onGenerate={()=>generatePost(ev)}
             onToggle={()=>setExpandedId(expandedId===ev.id?null:ev.id)} onDelete={()=>deleteEvent(ev.id)}
             onUpdateText={(pKey,val)=>updateEditedPost(ev.id,pKey,val)} onSaveEdits={()=>saveEditedPost(ev.id)}
             onOpenModal={(pKey)=>openModal(ev,pKey)}
             onAddToQueue={(pKey)=>addToQueue(ev,pKey)} onIsQueued={(pKey)=>isQueued(ev.id,pKey)}
+            postedPlatforms={postedPlatforms}
           />)
         )}
         {activeTab==="posts"&&(withPosts.length===0?<EmptyState icon="✍️" msg="No posts yet" sub='Go to Upcoming and click "Generate Post".'/>:
@@ -1031,7 +1072,7 @@ const generateRecap = async () => {
 // ═════════════════════════════════════════════════════════════════════════════
 // PREVIEW / CONFIRM MODAL (with editable text + final confirm)
 // ═════════════════════════════════════════════════════════════════════════════
-function PreviewModal({modal, settings, onClose, onUpdateText}) {
+function PreviewModal({modal, settings, onClose, onUpdateText, onPosted}) {
   const _pmTheme = localStorage.getItem("sma-theme-v1"); const _pmDark = _pmTheme===null||_pmTheme==="dark"; const T = _pmDark ? DARK : LIGHT;
   const {event, platformKey} = modal;
   const [text, setText] = useState(modal.text);
@@ -1049,6 +1090,7 @@ function PreviewModal({modal, settings, onClose, onUpdateText}) {
     const result = pCfg.postAction(text, settings, event);
     setPostNote(result.note);
     setPosted(true);
+    if (onPosted) onPosted(platformKey);
   };
 
   const charOver = platformKey==="twitter" && text.length>280;
@@ -1319,6 +1361,7 @@ function RecapCopyBtn({text, T}) {
 
 // ── Platform preview components ─────────────────────────────────────────────
 function LinkedInPreview({text}) {
+  const _t=localStorage.getItem("sma-theme-v1"); const T=(_t===null||_t==="dark")?DARK:LIGHT;
   return (
     <div style={{background:"#fff",borderRadius:"8px",fontFamily:"'-apple-system',sans-serif",overflow:"hidden",border:"1px solid #e0e0e0"}}>
       <div style={{padding:"12px 16px",display:"flex",gap:"10px",alignItems:"center"}}>
@@ -1338,6 +1381,7 @@ function LinkedInPreview({text}) {
 }
 
 function TwitterPreview({text}) {
+  const _t=localStorage.getItem("sma-theme-v1"); const T=(_t===null||_t==="dark")?DARK:LIGHT;
   const chars = text.length;
   const pct = Math.min(chars/280,1);
   const circleColor = chars>280?"#F4212E":chars>252?"#FFD400":"#1D9BF0";
@@ -1367,6 +1411,7 @@ function TwitterPreview({text}) {
 }
 
 function FacebookPreview({text}) {
+  const _t=localStorage.getItem("sma-theme-v1"); const T=(_t===null||_t==="dark")?DARK:LIGHT;
   return (
     <div style={{background:"#fff",borderRadius:"8px",fontFamily:"Helvetica,Arial,sans-serif",overflow:"hidden",border:"1px solid #ddd"}}>
       <div style={{padding:"12px 16px",display:"flex",gap:"10px",alignItems:"center"}}>
@@ -1390,6 +1435,7 @@ function FacebookPreview({text}) {
 }
 
 function InstagramPreview({text}) {
+  const _t=localStorage.getItem("sma-theme-v1"); const T=(_t===null||_t==="dark")?DARK:LIGHT;
   return (
     <div style={{background:"#fff",borderRadius:"8px",fontFamily:"-apple-system,sans-serif",overflow:"hidden",border:"1px solid #dbdbdb",maxWidth:"400px",margin:"0 auto"}}>
       <div style={{padding:"10px 12px",display:"flex",alignItems:"center",gap:"10px",borderBottom:"1px solid #dbdbdb"}}>
@@ -1425,7 +1471,7 @@ function EmptyState({icon,msg,sub}) {
     </div>
   );
 }
-function EventCard({T,event,post,editedPost,isPast,isExpanded,isGenerating,onGenerate,onToggle,onDelete,onUpdateText,onSaveEdits,onOpenModal,activePlatforms,onAddToQueue,onIsQueued}) {
+function EventCard({T,event,post,editedPost,isPast,isExpanded,isGenerating,onGenerate,onToggle,onDelete,onUpdateText,onSaveEdits,onOpenModal,activePlatforms,onAddToQueue,onIsQueued,onRecap,postedPlatforms}) {
   const color=TYPE_COLOR[event.type]||TYPE_COLOR.Other;
   const hasEdits = post && editedPost && (activePlatforms||ALL_PLATFORMS).some(p=> editedPost[p.key] && editedPost[p.key]!==post[p.key]);
   return (
@@ -1461,10 +1507,11 @@ function EventCard({T,event,post,editedPost,isPast,isExpanded,isGenerating,onGen
           </div>
         {/* Actions */}
         <div style={{display:"flex",flexDirection:"column",gap:"6px",flexShrink:0}}>
-          {!isPast&&<button onClick={()=>onGenerate()} disabled={isGenerating} style={{background:T?T.btnGhost:"rgba(0,0,0,.05)",color:T?T.textSub:"#6E6E73",border:"0.5px solid "+(T?T.btnGhostBorder:"rgba(0,0,0,.1)"),borderRadius:"8px",padding:"7px 13px",cursor:isGenerating?"not-allowed":"pointer",fontSize:"12px",fontWeight:"600",whiteSpace:"nowrap",opacity:isGenerating?0.5:1}}>
-            {isGenerating?"⏳ Generating…":post?"↺ Regenerate":"✦ Generate Posts"}
+          {onGenerate&&<button onClick={()=>onGenerate()} disabled={isGenerating} style={{background:T?T.btnGhost:"rgba(0,0,0,.05)",color:T?T.textSub:"#6E6E73",border:"0.5px solid "+(T?T.btnGhostBorder:"rgba(0,0,0,.1)"),borderRadius:"8px",padding:"7px 13px",cursor:isGenerating?"not-allowed":"pointer",fontSize:"12px",fontWeight:"600",whiteSpace:"nowrap",opacity:isGenerating?0.5:1}}>
+            {isGenerating?"⏳ Generating…":post?(isPast?"↺ Re-Recap":"↺ Regenerate"):(isPast?"✦ Generate Recap":"✦ Generate Posts")}
           </button>}
           {post&&<button onClick={onToggle} style={{background:T?T.btnPrimary:"#0071E3",color:T?T.btnPrimaryText:"#fff",border:"none",borderRadius:"8px",padding:"7px 13px",cursor:"pointer",fontSize:"12px",fontWeight:"600"}}>{isExpanded?"▲ Close":"Edit & Post"}</button>}
+          
           <button onClick={onDelete} style={{background:"transparent",color:"#7F1D1D",border:"1px solid #3A1A1A",borderRadius:"7px",padding:"7px 10px",cursor:"pointer",fontSize:"12px"}}>🗑️</button>
         </div>
       </div>
@@ -1474,7 +1521,7 @@ function EventCard({T,event,post,editedPost,isPast,isExpanded,isGenerating,onGen
         <div style={{borderTop:"0.5px solid "+(T?T.border:"rgba(0,0,0,.1)"),padding:"16px 20px"}}>
           {/* Full event image */}
           <img src={event.imageUrl} alt={event.title} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
-          <PostEditor T={T} post={post} editedPost={editedPost} eventId={event.id} event={event} onUpdateText={onUpdateText} onSaveEdits={onSaveEdits} onOpenModal={onOpenModal} onAddToQueue={onAddToQueue} onIsQueued={onIsQueued} activePlatforms={activePlatforms}/>
+          <PostEditor T={T} post={post} editedPost={editedPost} eventId={event.id} event={event} onUpdateText={onUpdateText} onSaveEdits={onSaveEdits} onOpenModal={onOpenModal} onAddToQueue={onAddToQueue} onIsQueued={onIsQueued} activePlatforms={activePlatforms} postedPlatforms={postedPlatforms}/>
         </div>
       )}
     </div>
@@ -1484,20 +1531,126 @@ function EventCard({T,event,post,editedPost,isPast,isExpanded,isGenerating,onGen
 // ═════════════════════════════════════════════════════════════════════════════
 // POST CARD (Posts tab)
 // ═════════════════════════════════════════════════════════════════════════════
-function PostCard({T,event,post,editedPost,onUpdateText,onSaveEdits,onOpenModal,activePlatforms,onAddToQueue,onIsQueued}) {
+function PostCard({T,event,post,editedPost,onUpdateText,onSaveEdits,onOpenModal,activePlatforms,onAddToQueue,onIsQueued,postedPlatforms}) {
+  const [collapsed, setCollapsed] = useState(false);
+  const platformCount = (activePlatforms||ALL_PLATFORMS).filter(p=>post[p.key]).length;
   return (
     <div style={{background:T?T.bgCard:"#fff",border:"0.5px solid "+(T?T.border:"rgba(0,0,0,.1)"),borderRadius:"12px",marginBottom:"8px",overflow:"hidden"}}>
-      <div style={{background:T?T.bgCardAlt:T&&T.bgCardAlt,padding:"12px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"8px"}}>
-        <div>
-          <div style={{fontWeight:"bold",color:T.text,fontSize:"15px",fontWeight:"600"}}>{event.title}</div>
-          <div style={{fontSize:"12px",color:(T?T.textSub:T.textSub)}}>📅 {fmtDate(event.date)}</div>
+      {/* Header — matches EventCard layout */}
+      <div style={{padding:"12px 16px",display:"flex",alignItems:"center",gap:"12px"}}>
+        {/* Date badge */}
+        <div style={{minWidth:"44px",textAlign:"center",background:T?T.bgCardAlt:"#f5f5f5",borderRadius:"8px",padding:"6px 8px",flexShrink:0}}>
+          <div style={{fontSize:"10px",color:T?T.accent:"#0071E3",fontWeight:"700",textTransform:"uppercase",letterSpacing:".08em"}}>{event.date?localDate(event.date).toLocaleString("en-US",{month:"short"}):""}</div>
+          <div style={{fontSize:"20px",fontWeight:"700",color:T?T.text:"#1D1D1F",lineHeight:"1"}}>{event.date?localDate(event.date).getDate():""}</div>
         </div>
-        <div style={{fontSize:"11px",color:T.textSub}}>Generated {new Date(post.generatedAt).toLocaleDateString()}</div>
+        {/* Event info */}
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontWeight:"600",color:T?T.text:"#1D1D1F",fontSize:"15px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{event.title}</div>
+          <div style={{fontSize:"12px",color:T?T.textSub:"#6E6E73",marginTop:"2px"}}>📅 {fmtDate(event.date)} · {platformCount} platform{platformCount!==1?"s":""} · <span style={{opacity:.7}}>Generated {new Date(post.generatedAt).toLocaleDateString()}</span></div>
+        </div>
+        {/* Collapse button — same style as EventCard Close */}
+        <button
+          onClick={()=>setCollapsed(v=>!v)}
+          style={{background:T?T.btnPrimary:"#0071E3",color:T?T.btnPrimaryText:"#fff",border:"none",borderRadius:"8px",padding:"7px 13px",cursor:"pointer",fontSize:"12px",fontWeight:"600",flexShrink:0}}
+        >
+          {collapsed?"▼ Expand":"▲ Collapse"}
+        </button>
       </div>
-      <div style={{padding:"16px 20px"}}>
-        <img src={event.imageUrl} alt={event.title} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
-        <PostEditor T={T} post={post} editedPost={editedPost} eventId={event.id} event={event} onUpdateText={onUpdateText} onSaveEdits={onSaveEdits} onOpenModal={onOpenModal} onAddToQueue={onAddToQueue} onIsQueued={onIsQueued} activePlatforms={activePlatforms}/>
+      {/* Collapsible body */}
+      {!collapsed&&(
+        <div style={{padding:"0 16px 16px"}}>
+          {event.imageUrl&&<img src={event.imageUrl} alt={event.title} style={{width:"100%",maxHeight:"160px",objectFit:"cover",display:"block",borderRadius:"8px",marginBottom:"12px"}}/>}
+          <PostEditor T={T} post={post} editedPost={editedPost} eventId={event.id} event={event} onUpdateText={onUpdateText} onSaveEdits={onSaveEdits} onOpenModal={onOpenModal} onAddToQueue={onAddToQueue} onIsQueued={onIsQueued} activePlatforms={activePlatforms} postedPlatforms={postedPlatforms}/>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// PLATFORM CARD — collapsible per-platform post editor (top-level to preserve focus)
+// ═════════════════════════════════════════════════════════════════════════════
+function PlatformCard({p, T, externalText, savedText, onUpdateText, onAddToQueue, onIsQueued, onOpenModal, isPosted}) {
+  const [collapsed, setCollapsed] = useState(false);
+  // Local draft state — changes immediately on each keystroke without re-mounting
+  const [draft, setDraft] = useState(externalText);
+
+  // Sync draft when external text changes (e.g. after Generate Posts)
+  const prevExternal = React.useRef(externalText);
+  useEffect(() => {
+    if (externalText !== prevExternal.current) {
+      setDraft(externalText);
+      prevExternal.current = externalText;
+    }
+  }, [externalText]);
+
+  const isEdited = draft !== savedText;
+  const overLimit = p.charLimit && draft.length > p.charLimit;
+
+  const handleChange = (val) => {
+    setDraft(val);
+    onUpdateText(val);
+  };
+
+  return (
+    <div style={{background:T?T.bgCardAlt:T.bgCard,borderRadius:"10px",border:"0.5px solid "+(T?T.border:"rgba(0,0,0,.1)"),overflow:"hidden"}}>
+      {/* Platform header — click to collapse */}
+      <div
+        onClick={()=>setCollapsed(v=>!v)}
+        style={{background:T?T.bgCard:"#fff",padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:collapsed?"none":"0.5px solid "+(T?T.border:"rgba(0,0,0,.08)"),borderLeft:`3px solid ${p.color}`,cursor:"pointer",userSelect:"none"}}
+      >
+        <span style={{fontWeight:"bold",fontSize:"13px",color:p.color,display:"flex",alignItems:"center",gap:"6px"}}>
+          {p.icon} {p.label}
+          <span style={{fontSize:"10px",color:T?T.textSub:"#999",fontWeight:"normal",transition:"transform .2s",display:"inline-block",transform:collapsed?"rotate(-90deg)":"rotate(0deg)"}}>▾</span>
+        </span>
+        <div style={{display:"flex",gap:"8px",alignItems:"center"}} onClick={e=>e.stopPropagation()}>
+          {p.charLimit&&<span style={{fontSize:"11px",color:overLimit?"#F87171":draft.length>p.charLimit*.9?T.textSub:T.text}}>{draft.length}{p.charLimit?`/${p.charLimit}`:""}</span>}
+          {isPosted&&<span style={{fontSize:"10px",color:"#30D158",background:"rgba(52,199,89,.1)",padding:"1px 6px",borderRadius:"4px"}}>✓ Posted</span>}
+            {!isPosted&&isEdited&&<span style={{fontSize:"10px",color:"#F97316",background:"#F9731622",padding:"1px 6px",borderRadius:"4px"}}>edited</span>}
+          <button
+            onClick={onAddToQueue}
+            title={onIsQueued() ? "Already in queue — click to update" : "Add to batch queue"}
+            style={{
+              background: onIsQueued() ? (T?T.success:"rgba(52,199,89,.1)") : (T?T.btnGhost:"rgba(0,0,0,.05)"),
+              color: onIsQueued() ? (T?T.successText:"#1D7A3A") : (T?T.textSub:"#6E6E73"),
+              border:"0.5px solid "+(onIsQueued() ? "rgba(52,199,89,.3)" : (T?T.btnGhostBorder:"rgba(0,0,0,.1)")),
+              borderRadius:"6px",padding:"5px 10px",cursor:"pointer",
+              fontSize:"12px",fontWeight:"600",display:"flex",alignItems:"center",gap:"4px",
+            }}
+          >
+            {onIsQueued() ? "✓ Queued" : "+ Queue"}
+          </button>
+          <button
+            onClick={onOpenModal}
+            style={{background:p.color,color:"#fff",border:"none",borderRadius:"6px",padding:"5px 12px",cursor:"pointer",fontSize:"12px",fontWeight:"600",display:"flex",alignItems:"center",gap:"4px"}}
+          >
+            {p.icon} Post Now
+          </button>
+        </div>
       </div>
+      {/* Collapsible body */}
+      {!collapsed&&(
+        <>
+          <textarea
+            value={draft}
+            onChange={e=>{ if(!isPosted) handleChange(e.target.value); }}
+            readOnly={isPosted}
+            style={{
+              width:"100%",boxSizing:"border-box",
+              minHeight:p.key==="twitter"?"80px":"120px",
+              background:isPosted?(T?"rgba(52,199,89,.05)":"rgba(52,199,89,.05)"):"transparent",
+              border:"none",
+              color:isPosted?(T?T.textSub:"#999"):(T?T.text:"#1D1D1F"),
+              fontSize:"13px",lineHeight:"1.7",
+              padding:"12px 14px",resize:isPosted?"none":"vertical",
+              fontFamily:"-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif",
+              cursor:isPosted?"default":"text",
+              opacity:isPosted?0.75:1,
+            }}
+          />
+          {overLimit&&<div style={{padding:"4px 14px 8px",fontSize:"11px",color:"#F87171"}}>⚠️ Over {p.label} character limit by {draft.length-p.charLimit} chars</div>}
+        </>
+      )}
     </div>
   );
 }
@@ -1505,13 +1658,14 @@ function PostCard({T,event,post,editedPost,onUpdateText,onSaveEdits,onOpenModal,
 // ═════════════════════════════════════════════════════════════════════════════
 // POST EDITOR — editable textareas + Post buttons per platform
 // ══════════════════════════════════════════════════════════════════════════════════════
-function PostEditor({T,post, editedPost, eventId, event, onUpdateText, onSaveEdits, onOpenModal, onAddToQueue, onIsQueued, activePlatforms}) {
+function PostEditor({T,post, editedPost, eventId, event, onUpdateText, onSaveEdits, onOpenModal, onAddToQueue, onIsQueued, activePlatforms, postedPlatforms}) {
   const [dirty, setDirty] = useState(false);
 
   const handleChange = (pKey, val) => {
     onUpdateText(pKey, val);
     setDirty(true);
   };
+
 
   const handleSave = () => {
     onSaveEdits();
@@ -1522,60 +1676,17 @@ function PostEditor({T,post, editedPost, eventId, event, onUpdateText, onSaveEdi
     <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
       {(activePlatforms||ALL_PLATFORMS).map(p=>{
         const savedText = post[p.key] || "";
-        const currentText = (editedPost && editedPost[p.key] !== undefined) ? editedPost[p.key] : savedText;
-        const isEdited = currentText !== savedText;
-        const overLimit = p.charLimit && currentText.length > p.charLimit;
+        const externalText = (editedPost && editedPost[p.key] !== undefined) ? editedPost[p.key] : savedText;
         return (
-          <div key={p.key} style={{background:T?T.bgCardAlt:T.bgCard,borderRadius:"10px",border:"0.5px solid "+(T?T.border:"rgba(0,0,0,.1)"),overflow:"hidden",marginBottom:"0"}}>
-            {/* Platform header */}
-            <div style={{background:T?T.bgCard:"#fff",padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"0.5px solid "+(T?T.border:"rgba(0,0,0,.08)"),borderLeft:`3px solid ${p.color}`}}>
-              <span style={{fontWeight:"bold",fontSize:"13px",color:p.color}}>{p.icon} {p.label}</span>
-              <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
-                {p.charLimit&&<span style={{fontSize:"11px",color:overLimit?"#F87171":currentText.length>p.charLimit*.9?T.textSub:T.text}}>{currentText.length}{p.charLimit?`/${p.charLimit}`:""}</span>}
-                {isEdited&&<span style={{fontSize:"10px",color:"#F97316",background:"#F9731622",padding:"1px 6px",borderRadius:"4px"}}>edited</span>}
-                {/* QUEUE + POST NOW BUTTONS */}
-                <button
-                  onClick={()=>onAddToQueue && onAddToQueue(p.key)}
-                  title={onIsQueued && onIsQueued(p.key) ? "Already in queue — click to update" : "Add to batch queue"}
-                  style={{
-                    background: onIsQueued && onIsQueued(p.key) ? (T?T.success:"rgba(52,199,89,.1)") : (T?T.btnGhost:"rgba(0,0,0,.05)"),
-                    color: onIsQueued && onIsQueued(p.key) ? (T?T.successText:"#1D7A3A") : (T?T.textSub:"#6E6E73"),
-                    border:"0.5px solid "+(onIsQueued && onIsQueued(p.key) ? "rgba(52,199,89,.3)" : (T?T.btnGhostBorder:"rgba(0,0,0,.1)")),
-                    borderRadius:"6px", padding:"5px 10px", cursor:"pointer",
-                    fontSize:"12px", fontWeight:"600", display:"flex", alignItems:"center", gap:"4px",
-                  }}
-                >
-                  {onIsQueued && onIsQueued(p.key) ? "✓ Queued" : "+ Queue"}
-                </button>
-                <button
-                  onClick={()=>onOpenModal(p.key)}
-                  style={{
-                    background:p.color,
-                    color:"#fff",border:"none",borderRadius:"6px",
-                    padding:"5px 12px",cursor:"pointer",
-                    fontSize:"12px",fontWeight:"600",
-                    display:"flex",alignItems:"center",gap:"4px",
-                  }}
-                >
-                  {p.icon} Post Now
-                </button>
-              </div>
-            </div>
-            {/* Editable textarea */}
-            <textarea
-              value={currentText}
-              onChange={e=>handleChange(p.key, e.target.value)}
-              style={{
-                width:"100%",boxSizing:"border-box",
-                minHeight:p.key==="twitter"?"80px":"120px",
-                background:"transparent",border:"none",
-                color:T?T.text:"#1D1D1F",fontSize:"13px",lineHeight:"1.7",
-                padding:"12px 14px",resize:"vertical",
-                fontFamily:"-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif",
-              }}
-            />
-            {overLimit&&<div style={{padding:"4px 14px 8px",fontSize:"11px",color:"#F87171"}}>⚠️ Over {p.label} character limit by {currentText.length-p.charLimit} chars</div>}
-          </div>
+          <PlatformCard key={p.key} p={p} T={T}
+            externalText={externalText}
+            savedText={savedText}
+            onUpdateText={(val)=>handleChange(p.key,val)}
+            onAddToQueue={()=>onAddToQueue&&onAddToQueue(p.key)}
+            onIsQueued={()=>onIsQueued&&onIsQueued(p.key)}
+            onOpenModal={()=>onOpenModal(p.key)}
+            isPosted={!!(postedPlatforms&&postedPlatforms[eventId+":"+p.key])}
+          />
         );
       })}
       {/* Save edits button */}
