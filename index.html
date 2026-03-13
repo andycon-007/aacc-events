@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-  <title>Social Media Assistant v2.1</title>
+  <title>Social Media Assistant v2.6</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -67,7 +67,7 @@ const LIGHT = {
   scanCard:"#FFFFFF",
 };
 const SK_THEME = "sma-theme-v1";
-const VERSION = "v2.1";
+const VERSION = "v2.6";
 
 const SK_EVENTS = "aacc-events-v3";
 const SK_POSTS  = "aacc-posts-v3";
@@ -571,6 +571,7 @@ function App() {
   const [queue,       setQueue]       = useState([]);
   const [showBatch,   setShowBatch]   = useState(false);
   const [postedPlatforms, setPostedPlatforms] = useState({});
+  const [promptModal, setPromptModal]   = useState(null); // {eventId, action, event} or {action:'recap'}
 
   const toggleTheme = () => {
     const n = !isDark;
@@ -715,7 +716,7 @@ function App() {
   },[pasteText,processScrapedEvents]);
 
   // ── Generate posts ─────────────────────────────────────────────────────────
-  const generatePost = useCallback(async(event)=>{
+  const generatePost = useCallback(async(event, customPrompt="")=>{
     if (!settings.setupComplete) { setShowSettings(true); return; }
     setGenId(event.id);
     const eventIsPast = isPast(event.date);
@@ -741,7 +742,7 @@ function App() {
       const orgName = settings.orgName || "";
       const hashtags = settings.hashtags || "";
       const promptVerb = eventIsPast ? "Write past-tense RECAP social media posts celebrating this event that already happened" : "Create social media posts for this upcoming event";
-      const data=await callClaude([{role:"user",content:`${promptVerb}:\n\nTitle: ${event.title}\nDate: ${fmtDate(event.date)}${event.starts?" ("+event.starts+")":""}\nVenue: ${event.venue||""}${event.address?" — "+event.address:""}\nDescription: ${event.description||"Networking event."}\nType: ${event.type}\nRegistration: ${event.registration}\nURL: ${event.url}\n${orgName?"Organisation: "+orgName+"\n":""}\n${eventIsPast?"This event has ALREADY HAPPENED. All posts must be written in PAST TENSE as a celebration/recap. Do NOT use future tense or \"join us\" language.\n":""}Write posts for these platforms. Return ONLY this JSON (no markdown):\n{\n  ${platformList}\n}\n${hashtags?"Include these hashtags where appropriate: "+hashtags+"\n":""}IMPORTANT: Each post MUST include the event URL (${event.url}). Follow the format instructions precisely for each platform.`}],
+      const data=await callClaude([{role:"user",content:`${promptVerb}:\n\nTitle: ${event.title}\nDate: ${fmtDate(event.date)}${event.starts?" ("+event.starts+")":""}\nVenue: ${event.venue||""}${event.address?" — "+event.address:""}\nDescription: ${event.description||"Networking event."}\nType: ${event.type}\nRegistration: ${event.registration}\nURL: ${event.url}\n${orgName?"Organisation: "+orgName+"\n":""}\n${eventIsPast?"This event has ALREADY HAPPENED. All posts must be written in PAST TENSE as a celebration/recap. Do NOT use future tense or \"join us\" language.\n":""}Write posts for these platforms. Return ONLY this JSON (no markdown):\n{\n  ${platformList}\n}\n${hashtags?"Include these hashtags where appropriate: "+hashtags+"\n":""}IMPORTANT: Each post MUST include the event URL (${event.url}). Follow the format instructions precisely for each platform.${customPrompt?" Additional guidance from the user (IMPORTANT — prioritise this): "+customPrompt:""}\n`}],
         "Return ONLY valid JSON. No markdown fences. No explanation.", settings);
       const text=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
       const match=text.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/);
@@ -785,7 +786,7 @@ function App() {
   const withPosts = events.filter(e=>posts[e.id]);
 
   // ── Settings page ──────────────────────────────────────────────────────────
-const generateRecap = async () => {
+const generateRecap = async (customPrompt="") => {
     if (!recapUrl.trim()) return;
     setRecapLoading(true); setRecapError(null); setRecapPosts(null);
     const platformList = activePlatforms.map(p=>{
@@ -802,7 +803,7 @@ const generateRecap = async () => {
     const orgName = settings.orgName || "";
     const hashtags = settings.hashtags || "";
     try {
-      const data = await callClaude([{role:"user",content:"Write social media recap posts for this past event.\nEvent page URL: "+recapUrl+"\n\nPast tense. Follow the format and char limits strictly.\n{\n  "+platformList+"\n}\n"+(orgName?"Organisation: "+orgName+"\n":"")+(hashtags?"Hashtags: "+hashtags+"\n":"")+"IMPORTANT: Each post MUST include a link back to the event page URL above.\nReturn ONLY valid JSON, no markdown."}],
+      const data = await callClaude([{role:"user",content:`Write social media recap posts for this past event.\nEvent page URL: ${recapUrl}\n\nPast tense. Follow the format and char limits strictly.\n{\n  ${platformList}\n}\n${orgName?"Organisation: "+orgName+"\n":""}${hashtags?"Hashtags: "+hashtags+"\n":""}IMPORTANT: Each post MUST include a link back to the event page URL above.${customPrompt?" Additional guidance from the user (IMPORTANT — prioritise this): "+customPrompt:""}\nReturn ONLY valid JSON, no markdown.`}],
         "Return ONLY valid JSON. No markdown fences. No explanation. You MUST count characters and stay within the HARD limits specified. If a post exceeds the limit, cut it down before returning.", settings);
       const text=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
       const match=text.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/);
@@ -840,6 +841,21 @@ const generateRecap = async () => {
       {notif&&<div style={{position:"fixed",top:20,right:20,zIndex:2000,background:notif.type==="err"?"#FF3B30":"#34C759",color:"#fff",padding:"12px 20px",borderRadius:"10px",boxShadow:"0 4px 16px rgba(0,0,0,.2)",fontSize:"13px",fontWeight:"600",animation:"fadeSlide .3s ease"}}>{notif.msg}</div>}
 
       {/* Modals */}
+      {/* Custom Prompt Modal */}
+      {promptModal&&(
+        <PromptModal
+          T={T}
+          isPast={promptModal.event?isPast(promptModal.event.date):false}
+          isRecap={promptModal.action==="recap"}
+          onConfirm={(txt)=>{
+            const pm = promptModal;
+            setPromptModal(null);
+            if (pm.action==="generate") generatePost(pm.event, txt);
+            else if (pm.action==="recap") generateRecap(txt);
+          }}
+          onCancel={()=>setPromptModal(null)}
+        />
+      )}
       {modal&&<PreviewModal modal={modal} settings={settings} onClose={()=>setModal(null)}
         onUpdateText={(t)=>{ setModal(m=>({...m,text:t,editText:t})); updateEditedPost(modal.event.id, modal.platformKey, t); }}
         onPosted={(pKey)=>{ setPostedPlatforms(prev=>({...prev,[modal.event.id+":"+pKey]:true})); }}
@@ -969,7 +985,7 @@ const generateRecap = async () => {
         {activeTab==="upcoming"&&(upcoming.length===0?<EmptyState icon="🦘" msg="No upcoming events yet" sub='Click "Auto Scan" to load events.'/>:
           upcoming.map(ev=><EventCard key={ev.id} T={T} event={ev} post={posts[ev.id]} editedPost={editedPosts[ev.id]}
             isExpanded={expandedId===ev.id} isGenerating={genId===ev.id} activePlatforms={activePlatforms}
-            onGenerate={()=>generatePost(ev)} onToggle={()=>setExpandedId(expandedId===ev.id?null:ev.id)}
+            onGenerate={()=>setPromptModal({event:ev, action:"generate"})} onToggle={()=>setExpandedId(expandedId===ev.id?null:ev.id)}
             onDelete={()=>deleteEvent(ev.id)} onUpdateText={(pKey,val)=>updateEditedPost(ev.id,pKey,val)}
             onSaveEdits={()=>saveEditedPost(ev.id)} onOpenModal={(pKey)=>openModal(ev,pKey)}
             onAddToQueue={(pKey)=>addToQueue(ev,pKey)} onIsQueued={(pKey)=>isQueued(ev.id,pKey)}
@@ -979,7 +995,7 @@ const generateRecap = async () => {
         {activeTab==="past"&&(past.length===0?<EmptyState icon="📅" msg="No past events" sub="Events before today appear here."/>:
           past.map(ev=><EventCard key={ev.id} T={T} event={ev} post={posts[ev.id]} editedPost={editedPosts[ev.id]} isPast
             isExpanded={expandedId===ev.id} isGenerating={genId===ev.id} activePlatforms={activePlatforms}
-            onGenerate={()=>generatePost(ev)}
+            onGenerate={()=>setPromptModal({event:ev, action:"generate"})}
             onToggle={()=>setExpandedId(expandedId===ev.id?null:ev.id)} onDelete={()=>deleteEvent(ev.id)}
             onUpdateText={(pKey,val)=>updateEditedPost(ev.id,pKey,val)} onSaveEdits={()=>saveEditedPost(ev.id)}
             onOpenModal={(pKey)=>openModal(ev,pKey)}
@@ -1009,7 +1025,7 @@ const generateRecap = async () => {
                 style={{flex:1,minWidth:"200px",background:T.bgCardAlt,border:"0.5px solid "+T.border,borderRadius:"8px",padding:"10px 14px",color:T.text,fontSize:"13px",outline:"none"}}
               />
               <button
-                onClick={generateRecap}
+                onClick={()=>setPromptModal({action:"recap"})}
                 disabled={recapLoading||!recapUrl.trim()}
                 style={{background:recapLoading?T.btnGhost:T.btnPrimary,color:recapLoading?T.textSub:T.btnPrimaryText,border:"none",borderRadius:"8px",padding:"10px 20px",cursor:recapLoading||!recapUrl.trim()?"not-allowed":"pointer",fontWeight:"bold",fontSize:"13px",whiteSpace:"nowrap"}}
               >
@@ -1361,11 +1377,10 @@ function RecapCopyBtn({text, T}) {
 
 // ── Platform preview components ─────────────────────────────────────────────
 function LinkedInPreview({text}) {
-  const _t=localStorage.getItem("sma-theme-v1"); const T=(_t===null||_t==="dark")?DARK:LIGHT;
   return (
     <div style={{background:"#fff",borderRadius:"8px",fontFamily:"'-apple-system',sans-serif",overflow:"hidden",border:"1px solid #e0e0e0"}}>
       <div style={{padding:"12px 16px",display:"flex",gap:"10px",alignItems:"center"}}>
-        <div style={{width:"44px",height:"44px",borderRadius:"12px",background:T.bgCardAlt,border:"0.5px solid "+T.border,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:T.accent,fontWeight:"700",fontSize:"15px"}}>A</div>
+        <div style={{width:"44px",height:"44px",borderRadius:"12px",background:"#F3F2EF",border:"0.5px solid rgba(0,0,0,.15)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#0A66C2",fontWeight:"700",fontSize:"15px"}}>A</div>
         <div>
           <div style={{fontWeight:"600",color:"#000",fontSize:"14px"}}>Your Org</div>
           <div style={{color:"#666",fontSize:"12px"}}>Australian American Chamber of Commerce</div>
@@ -1381,14 +1396,13 @@ function LinkedInPreview({text}) {
 }
 
 function TwitterPreview({text}) {
-  const _t=localStorage.getItem("sma-theme-v1"); const T=(_t===null||_t==="dark")?DARK:LIGHT;
   const chars = text.length;
   const pct = Math.min(chars/280,1);
   const circleColor = chars>280?"#F4212E":chars>252?"#FFD400":"#1D9BF0";
   return (
     <div style={{background:"#fff",borderRadius:"12px",fontFamily:"'-apple-system',sans-serif",padding:"16px",border:"1px solid #eff3f4"}}>
       <div style={{display:"flex",gap:"12px"}}>
-        <div style={{width:"40px",height:"40px",borderRadius:"50%",background:T.accent,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:"bold"}}>A</div>
+        <div style={{width:"40px",height:"40px",borderRadius:"50%",background:"#000",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:"bold"}}>A</div>
         <div style={{flex:1}}>
           <div style={{display:"flex",gap:"6px",alignItems:"baseline",marginBottom:"4px"}}>
             <span style={{fontWeight:"700",color:"#0F1419",fontSize:"15px"}}>Your Org</span>
@@ -1411,11 +1425,10 @@ function TwitterPreview({text}) {
 }
 
 function FacebookPreview({text}) {
-  const _t=localStorage.getItem("sma-theme-v1"); const T=(_t===null||_t==="dark")?DARK:LIGHT;
   return (
     <div style={{background:"#fff",borderRadius:"8px",fontFamily:"Helvetica,Arial,sans-serif",overflow:"hidden",border:"1px solid #ddd"}}>
       <div style={{padding:"12px 16px",display:"flex",gap:"10px",alignItems:"center"}}>
-        <div style={{width:"40px",height:"40px",borderRadius:"50%",background:T.accent,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:"bold"}}>A</div>
+        <div style={{width:"40px",height:"40px",borderRadius:"50%",background:"#1877F2",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:"bold"}}>A</div>
         <div>
           <div style={{fontWeight:"600",color:"#050505",fontSize:"14px"}}>Your Org</div>
           <div style={{color:"#65676B",fontSize:"12px",display:"flex",alignItems:"center",gap:"4px"}}>Just now · <span>🌐</span></div>
@@ -1435,12 +1448,11 @@ function FacebookPreview({text}) {
 }
 
 function InstagramPreview({text}) {
-  const _t=localStorage.getItem("sma-theme-v1"); const T=(_t===null||_t==="dark")?DARK:LIGHT;
   return (
     <div style={{background:"#fff",borderRadius:"8px",fontFamily:"-apple-system,sans-serif",overflow:"hidden",border:"1px solid #dbdbdb",maxWidth:"400px",margin:"0 auto"}}>
       <div style={{padding:"10px 12px",display:"flex",alignItems:"center",gap:"10px",borderBottom:"1px solid #dbdbdb"}}>
         <div style={{width:"32px",height:"32px",borderRadius:"50%",background:"linear-gradient(135deg,#833AB4,#FD1D1D,#F77737)",padding:"2px",display:"flex",alignItems:"center",justifyContent:"center"}}>
-          <div style={{width:"100%",height:"100%",borderRadius:"50%",background:T.accent,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:"bold",fontSize:"12px"}}>A</div>
+          <div style={{width:"100%",height:"100%",borderRadius:"50%",background:"linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:"bold",fontSize:"12px"}}>A</div>
         </div>
         <span style={{fontWeight:"600",color:"#262626",fontSize:"14px"}}>aacctexas</span>
         <span style={{marginLeft:"auto",color:"#262626",fontSize:"14px",fontWeight:"600",color:"#0095F6",cursor:"pointer"}}>Follow</span>
@@ -1507,7 +1519,7 @@ function EventCard({T,event,post,editedPost,isPast,isExpanded,isGenerating,onGen
           </div>
         {/* Actions */}
         <div style={{display:"flex",flexDirection:"column",gap:"6px",flexShrink:0}}>
-          {onGenerate&&<button onClick={()=>onGenerate()} disabled={isGenerating} style={{background:T?T.btnGhost:"rgba(0,0,0,.05)",color:T?T.textSub:"#6E6E73",border:"0.5px solid "+(T?T.btnGhostBorder:"rgba(0,0,0,.1)"),borderRadius:"8px",padding:"7px 13px",cursor:isGenerating?"not-allowed":"pointer",fontSize:"12px",fontWeight:"600",whiteSpace:"nowrap",opacity:isGenerating?0.5:1}}>
+          {onGenerate&&<button onClick={()=>onGenerate()} disabled={isGenerating} style={{background:isGenerating?(T?T.btnGhost:"rgba(0,0,0,.05)"):(isPast?(T?T.btnPrimary:"#0071E3"):(T?T.btnGhost:"rgba(0,0,0,.05)")),color:isGenerating?(T?T.textSub:"#6E6E73"):(isPast?(T?T.btnPrimaryText:"#fff"):(T?T.textSub:"#6E6E73")),border:isPast?"none":"0.5px solid "+(T?T.btnGhostBorder:"rgba(0,0,0,.1)"),borderRadius:"8px",padding:"7px 13px",cursor:isGenerating?"not-allowed":"pointer",fontSize:"12px",fontWeight:"600",whiteSpace:"nowrap",opacity:isGenerating?0.5:1}}>
             {isGenerating?"⏳ Generating…":post?(isPast?"↺ Re-Recap":"↺ Regenerate"):(isPast?"✦ Generate Recap":"✦ Generate Posts")}
           </button>}
           {post&&<button onClick={onToggle} style={{background:T?T.btnPrimary:"#0071E3",color:T?T.btnPrimaryText:"#fff",border:"none",borderRadius:"8px",padding:"7px 13px",cursor:"pointer",fontSize:"12px",fontWeight:"600"}}>{isExpanded?"▲ Close":"Edit & Post"}</button>}
@@ -1519,8 +1531,10 @@ function EventCard({T,event,post,editedPost,isPast,isExpanded,isGenerating,onGen
       {/* Expanded editor */}
       {isExpanded&&post&&(
         <div style={{borderTop:"0.5px solid "+(T?T.border:"rgba(0,0,0,.1)"),padding:"16px 20px"}}>
-          {/* Full event image */}
-          <img src={event.imageUrl} alt={event.title} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
+          {/* Full event image — thumbnail size, full res src for reposting */}
+          <div style={{borderRadius:"10px",overflow:"hidden",marginBottom:"12px",maxWidth:"260px"}}>
+            <img src={event.imageUrl} alt={event.title} style={{width:"100%",height:"auto",objectFit:"cover",display:"block"}}/>
+          </div>
           <PostEditor T={T} post={post} editedPost={editedPost} eventId={event.id} event={event} onUpdateText={onUpdateText} onSaveEdits={onSaveEdits} onOpenModal={onOpenModal} onAddToQueue={onAddToQueue} onIsQueued={onIsQueued} activePlatforms={activePlatforms} postedPlatforms={postedPlatforms}/>
         </div>
       )}
@@ -1559,7 +1573,7 @@ function PostCard({T,event,post,editedPost,onUpdateText,onSaveEdits,onOpenModal,
       {/* Collapsible body */}
       {!collapsed&&(
         <div style={{padding:"0 16px 16px"}}>
-          {event.imageUrl&&<img src={event.imageUrl} alt={event.title} style={{width:"100%",maxHeight:"160px",objectFit:"cover",display:"block",borderRadius:"8px",marginBottom:"12px"}}/>}
+          {event.imageUrl&&<div style={{borderRadius:"10px",overflow:"hidden",marginBottom:"12px",maxWidth:"260px"}}><img src={event.imageUrl} alt={event.title} style={{width:"100%",height:"auto",objectFit:"cover",display:"block"}}/></div>}
           <PostEditor T={T} post={post} editedPost={editedPost} eventId={event.id} event={event} onUpdateText={onUpdateText} onSaveEdits={onSaveEdits} onOpenModal={onOpenModal} onAddToQueue={onAddToQueue} onIsQueued={onIsQueued} activePlatforms={activePlatforms} postedPlatforms={postedPlatforms}/>
         </div>
       )}
@@ -1697,6 +1711,79 @@ function PostEditor({T,post, editedPost, eventId, event, onUpdateText, onSaveEdi
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// PROMPT MODAL — custom guidance input before generating posts
+// ═════════════════════════════════════════════════════════════════════════════
+function PromptModal({T, isPast, isRecap, onConfirm, onCancel}) {
+  const [txt, setTxt] = React.useState("");
+  const inputRef = React.useRef(null);
+  useEffect(()=>{ if(inputRef.current) inputRef.current.focus(); },[]);
+
+  const title   = isRecap  ? "Generate Recap"
+                : isPast   ? "Generate Recap Posts"
+                :            "Generate Posts";
+  const context = isRecap  ? "recap posts for this past event"
+                : isPast   ? "past-tense recap posts for this event"
+                :            "upcoming event posts";
+
+  const examples = isRecap||isPast
+    ? ["Thank [name] for their amazing talk", "Highlight the networking that happened", "Celebratory and fun with an Aussie flavour", "Serious and professional tone"]
+    : ["Focus on the networking opportunity", "Mention the venue has great food", "Fun with an Aussie theme 🦘", "Formal and professional tone"];
+
+  const handleKey = (e) => {
+    if (e.key==="Enter" && !e.shiftKey) { e.preventDefault(); onConfirm(txt.trim()); }
+    if (e.key==="Escape") onCancel();
+  };
+
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:2000,background:"rgba(0,0,0,.5)",display:"flex",alignItems:"center",justifyContent:"center",padding:"16px"}}
+      onClick={(e)=>{ if(e.target===e.currentTarget) onCancel(); }}>
+      <div style={{background:T?T.modalBg:"#fff",borderRadius:"16px",width:"100%",maxWidth:"520px",boxShadow:"0 20px 60px rgba(0,0,0,.3)",border:"0.5px solid "+(T?T.border:"rgba(0,0,0,.1)")}}>
+        {/* Header */}
+        <div style={{padding:"18px 20px 12px",borderBottom:"0.5px solid "+(T?T.border:"rgba(0,0,0,.08)")}}>
+          <div style={{fontSize:"16px",fontWeight:"700",color:T?T.text:"#1D1D1F"}}>{title}</div>
+          <div style={{fontSize:"12px",color:T?T.textSub:"#6E6E73",marginTop:"3px"}}>Add optional guidance to personalise your {context}. Leave blank for the default style.</div>
+        </div>
+        {/* Input area */}
+        <div style={{padding:"16px 20px"}}>
+          <textarea
+            ref={inputRef}
+            value={txt}
+            onChange={e=>setTxt(e.target.value)}
+            onKeyDown={handleKey}
+            placeholder={"e.g. " + examples[0]}
+            rows={3}
+            style={{width:"100%",boxSizing:"border-box",background:T?T.bgCardAlt:"#f5f5f5",border:"0.5px solid "+(T?T.border:"rgba(0,0,0,.15)"),borderRadius:"10px",padding:"12px 14px",fontSize:"14px",color:T?T.text:"#1D1D1F",resize:"none",fontFamily:"inherit",outline:"none",lineHeight:"1.6"}}
+          />
+          {/* Example chips */}
+          <div style={{marginTop:"10px"}}>
+            <div style={{fontSize:"11px",color:T?T.textSub:"#999",marginBottom:"6px",textTransform:"uppercase",letterSpacing:".06em"}}>Quick ideas — click to use:</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>
+              {examples.map(ex=>(
+                <button key={ex} onClick={()=>setTxt(ex)}
+                  style={{fontSize:"11px",padding:"4px 10px",borderRadius:"20px",border:"0.5px solid "+(T?T.border:"rgba(0,0,0,.15)"),background:T?T.bgCard:"#fff",color:T?T.textSub:"#555",cursor:"pointer",whiteSpace:"nowrap"}}>
+                  {ex}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        {/* Footer */}
+        <div style={{padding:"12px 20px 18px",display:"flex",gap:"10px",justifyContent:"flex-end",borderTop:"0.5px solid "+(T?T.border:"rgba(0,0,0,.08)")}}>
+          <button onClick={onCancel}
+            style={{background:"transparent",color:T?T.textSub:"#6E6E73",border:"0.5px solid "+(T?T.btnGhostBorder:"rgba(0,0,0,.15)"),borderRadius:"8px",padding:"9px 18px",cursor:"pointer",fontSize:"13px"}}>
+            Cancel
+          </button>
+          <button onClick={()=>onConfirm(txt.trim())}
+            style={{background:T?T.btnPrimary:"#0071E3",color:T?T.btnPrimaryText:"#fff",border:"none",borderRadius:"8px",padding:"9px 20px",cursor:"pointer",fontSize:"13px",fontWeight:"600"}}>
+            {txt.trim() ? "✦ Generate with guidance" : "✦ Generate (default)"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
