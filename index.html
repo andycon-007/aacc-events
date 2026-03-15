@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-  <title>Social Media Assistant v2.15</title>
+  <title>Social Media Assistant v3.5</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -15,7 +15,11 @@
     #root.has-banner { padding-top: 56px; }
 
     /* Mobile tweaks */
-    @media (max-width: 600px) {
+    @media (max-width: 520px) {
+      .home-tiles { grid-template-columns: 1fr !important; }
+    }
+    @media (max-width: 720px) {
+      .home-tiles { grid-template-columns: repeat(2,minmax(0,1fr)) !important; }
     }
   </style>
 </head>
@@ -67,7 +71,7 @@ const LIGHT = {
   scanCard:"#FFFFFF",
 };
 const SK_THEME = "sma-theme-v1";
-const VERSION = "v2.15";
+const VERSION = "v3.5";
 
 const SK_EVENTS = "aacc-events-v3";
 const SK_POSTS  = "aacc-posts-v3";
@@ -623,6 +627,12 @@ function App() {
   const [promptModal, setPromptModal]   = useState(null); // {eventId, action, event} or {action:'recap'}
   const [showMenu,    setShowMenu]      = useState(false);
   const [showInfo,    setShowInfo]      = useState(false);
+  const [view,        setView]          = useState("home"); // "home" | "events"
+  const [homeMode,    setHomeMode]      = useState(null);   // null | "newpost" | "recap"
+  const [freePosts,   setFreePosts]     = useState(null);   // generated free-form posts
+  const [freeGenerating, setFreeGenerating] = useState(false);
+  const [freeTopic,   setFreeTopic]     = useState("");
+
 
   const toggleTheme = () => {
     const n = !isDark;
@@ -823,7 +833,40 @@ function App() {
     setGenId(null);
   },[posts,settings,activePlatforms]);
 
-  const updateEditedPost=(eventId,platformKey,value)=>{
+  const generateFreePost = async (topic, customPrompt) => {
+    if (!settings.setupComplete) { setShowSettings(true); return; }
+    setFreeGenerating(true);
+    setFreePosts(null);
+    const orgName = settings.orgName || "";
+    const hashtags = settings.hashtags || "";
+    const platformList = activePlatforms.map(function(p) {
+      const limits = {
+        linkedin:"MAX 1300 CHARS. Format: opening hook, 2-3 short paragraphs, emoji bullet key info, 1-sentence CTA, 2-3 hashtags. Professional tone.",
+        twitter:"HARD LIMIT: 260 CHARS MAXIMUM. One punchy sentence. No hashtags unless under limit.",
+        facebook:"MAX 800 CHARS. Warm friendly tone. Opening hook, 2 short paragraphs, CTA, 3-4 hashtags.",
+        instagram:"MAX 1200 CHARS. Casual warm. 2-3 paragraphs, bullet points, 5-8 hashtags at end.",
+        email:"MAX 1500 CHARS. Professional email: subject-ready opening, body, sign-off.",
+        file:"MAX 2000 CHARS. Comprehensive version with full details."
+      };
+      return '"'+p.key+'": "'+(limits[p.key]||"100-150 words")+'"';
+    }).join(", ");
+    const prompt = "Write social media posts about the following topic for "+(orgName||"our organisation")+".\n\nTopic: "+topic+"\n\n"+(hashtags?"Include these hashtags where appropriate: "+hashtags+"\n":"")+"Write posts for these platforms. Return ONLY this JSON (no markdown):\n{\n  "+platformList+"\n}\n"+(customPrompt?"Additional guidance (IMPORTANT - prioritise this): "+customPrompt+"\n":"")+"Follow the format instructions precisely for each platform.";
+    try {
+      const data = await callClaude([{role:"user",content:prompt}],
+        "Return ONLY valid JSON. No markdown fences. No explanation.", settings);
+      const text = (data.content||[]).filter(function(b){ return b.type==="text"; }).map(function(b){ return b.text; }).join("");
+      const match = text.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/);
+      if (!match) { toast("Could not parse response — try again","err"); setFreeGenerating(false); return; }
+      setFreePosts(JSON.parse(match[0]));
+      toast("Posts generated! ✍️");
+    } catch(e) {
+      if (e.message==="NO_API_KEY") { setShowSettings(true); }
+      else toast("Error: "+e.message,"err");
+    }
+    setFreeGenerating(false);
+  };
+
+    const updateEditedPost=(eventId,platformKey,value)=>{
     setEditedPosts(prev=>({...prev,[eventId]:{...prev[eventId],[platformKey]:value}}));
   };
   const saveEditedPost=async(eventId)=>{
@@ -885,8 +928,8 @@ const generateRecap = async (customPrompt="") => {
       <>
         <SettingsPage
           settings={settings}
-          onSave={async(s)=>{ await saveSettings(s); setShowSettings(false); }}
-          onClose={settings.setupComplete ? ()=>setShowSettings(false) : null}
+          onSave={async(s)=>{ await saveSettings(s); setShowSettings(false); setView("home"); }}
+          onClose={settings.setupComplete ? ()=>{ setShowSettings(false); setView("home"); } : null}
           isFirstRun={!settings.setupComplete}
           isDark={isDark} onToggleTheme={toggleTheme}
         />
@@ -909,11 +952,14 @@ const generateRecap = async (customPrompt="") => {
           T={T}
           isPast={promptModal.event?isPast(promptModal.event.date):false}
           isRecap={promptModal.action==="recap"}
+          isFree={promptModal.action==="freepost"}
+          freeTopic={promptModal.topic||""}
           onConfirm={(txt)=>{
             const pm = promptModal;
             setPromptModal(null);
             if (pm.action==="generate") generatePost(pm.event, txt);
             else if (pm.action==="recap") generateRecap(txt);
+            else if (pm.action==="freepost") generateFreePost(pm.topic, txt);
           }}
           onCancel={()=>setPromptModal(null)}
         />
@@ -936,23 +982,39 @@ const generateRecap = async (customPrompt="") => {
         <div style={{position:"fixed",inset:0,zIndex:2500,background:"rgba(0,0,0,.6)",display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}} onClick={()=>setShowInfo(false)}>
           <div style={{background:T.modalBg,border:"0.5px solid "+T.border,borderRadius:"16px",width:"100%",maxWidth:"480px",padding:"28px",boxShadow:"0 24px 64px rgba(0,0,0,.5)",animation:"modalIn .2s ease"}} onClick={e=>e.stopPropagation()}>
             <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"16px"}}>
-              <div style={{fontSize:"28px"}}>🦘</div>
               <div>
                 <div style={{fontSize:"17px",fontWeight:"700",color:T.text}}>Social Media Assistant</div>
-                <div style={{fontSize:"11px",color:T.textSub,fontFamily:"monospace"}}>{VERSION} · AACC Texas</div>
+                <div style={{fontSize:"11px",color:T.textSub,fontFamily:"monospace"}}>{VERSION}</div>
               </div>
             </div>
             <div style={{fontSize:"14px",color:T.text,lineHeight:"1.7",marginBottom:"16px"}}>
-              This app helps AACC Texas generate and publish social media posts for upcoming and past events — using AI to write platform-ready content in seconds.
+              AI-powered social media assistant — write and publish platform-ready posts for events, announcements and recaps in seconds.
             </div>
-            <div style={{fontSize:"13px",fontWeight:"700",color:T.accent,marginBottom:"10px"}}>How to use</div>
+            <div style={{fontSize:"13px",fontWeight:"700",color:T.accent,marginBottom:"10px"}}>Three ways to create posts</div>
+            <div style={{display:"flex",flexDirection:"column",gap:"8px",marginBottom:"16px"}}>
+              {[
+                ["✨","New Post","Type any topic or announcement — AI generates posts for all your platforms instantly."],
+                ["📅","Event Posts","Fetch your events calendar, generate posts for upcoming events, and archive past ones."],
+                ["🔁","Past Event Recap","Pick a past event from your list or paste any URL — AI writes celebratory recap posts in past tense."],
+              ].map(function(item) {
+                return (
+                  <div key={item[0]} style={{display:"flex",gap:"10px",alignItems:"flex-start"}}>
+                    <div style={{width:"24px",height:"24px",borderRadius:"6px",background:T.bgCardAlt,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:"1px",fontSize:"13px"}}>{item[0]}</div>
+                    <div>
+                      <span style={{fontSize:"13px",fontWeight:"600",color:T.text}}>{item[1]} — </span>
+                      <span style={{fontSize:"13px",color:T.textSub}}>{item[2]}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{fontSize:"13px",fontWeight:"700",color:T.accent,marginBottom:"10px"}}>Posting workflow</div>
             <div style={{display:"flex",flexDirection:"column",gap:"8px",marginBottom:"20px"}}>
               {[
-                ["1","Fetch Events","Click Auto Scan to load upcoming events from the AACC website."],
-                ["2","Generate Posts","Click Generate Posts on any event — AI writes platform-ready content for LinkedIn, X, Facebook and more."],
-                ["3","Edit if needed","Review and tweak the generated text directly in the app."],
-                ["4","Post","Click Post Now on any platform — the app copies your text and opens the platform's compose page ready to paste."],
-                ["5","Recap","Use the Recap tab to write celebratory past-tense posts after an event has happened."],
+                ["1","Generate","Choose a mode and let AI draft posts for each platform."],
+                ["2","Edit","Review and tweak the text in the platform cards."],
+                ["3","Post Now","Click Post Now — text is copied and the platform opens ready to paste."],
+                ["4","Confirm","Click Yes, I posted it to save to your Published archive."],
               ].map(function(item) {
                 return (
                   <div key={item[0]} style={{display:"flex",gap:"10px",alignItems:"flex-start"}}>
@@ -974,11 +1036,12 @@ const generateRecap = async (customPrompt="") => {
       <div style={{position:"relative",zIndex:10,background:T.bgCard,borderBottom:"0.5px solid "+T.border,padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:"10px",boxShadow:isDark?"none":"0 1px 3px rgba(0,0,0,.06)"}}>
         {/* Left: title + info */}
         <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
-          <div style={{display:"flex",alignItems:"baseline",gap:"6px",cursor:"pointer"}} onClick={()=>{setShowSettings(false);setActiveTab("upcoming");}}>
+          <div style={{display:"flex",alignItems:"baseline",gap:"6px",cursor:"pointer"}} onClick={()=>{setView("home");setHomeMode(null);setShowSettings(false);}}>
             <div style={{fontSize:"15px",fontWeight:"700",color:T.text,letterSpacing:"-.3px"}}>Social Media <span style={{color:T.accent}}>Assistant</span></div>
             <div style={{fontSize:"10px",color:T.textSub,fontFamily:"monospace"}}>{VERSION}</div>
           </div>
           <button onClick={()=>setShowInfo(true)} title="About & how to use" style={{width:"20px",height:"20px",borderRadius:"50%",background:T.accent,color:"#fff",border:"none",cursor:"pointer",fontSize:"11px",fontWeight:"700",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,lineHeight:1}}>i</button>
+          {view==="events"&&<button onClick={()=>{setView("home");setHomeMode(null);}} style={{background:T.btnGhost,color:T.btnGhostText,border:"0.5px solid "+T.btnGhostBorder,borderRadius:"16px",padding:"4px 12px",cursor:"pointer",fontSize:"12px",fontWeight:"600",display:"flex",alignItems:"center",gap:"4px"}}>🏠 Home</button>}
         </div>
         {/* Right: date + queue badge + hamburger */}
         <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
@@ -1025,14 +1088,39 @@ const generateRecap = async (customPrompt="") => {
         </div>
       </div>
 
-      {/* API key warning banner */}
-      {!settings.setupComplete&&(
-        <div style={{position:"relative",zIndex:1,background:T.warning,borderBottom:"0.5px solid "+T.warningBorder,padding:"10px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:"12px",flexWrap:"wrap"}}>
-          <div style={{fontSize:"13px",color:isDark?"#FF6961":"#C0392B"}}>⚠️ Setup incomplete — add your API key and configure platforms to get started.</div>
-          <button onClick={()=>setShowSettings(true)} style={{background:isDark?"rgba(255,105,97,.2)":"rgba(192,57,43,.1)",color:isDark?"#FF6961":"#C0392B",border:"0.5px solid "+(isDark?"rgba(255,105,97,.4)":"rgba(192,57,43,.3)"),borderRadius:"16px",padding:"5px 14px",cursor:"pointer",fontSize:"12px",fontWeight:"600"}}>Open Settings →</button>
-        </div>
+
+      {/* ── HOME SCREEN ─────────────────────────────────────────── */}
+      {view==="home"&&(
+        <HomeScreen T={T} isDark={isDark}
+          onNewPost={()=>{ setHomeMode(homeMode==="newpost"?null:"newpost"); setFreePosts(null); setFreeTopic(""); }}
+          onEvents={()=>{ setView("events"); setHomeMode(null); setActiveTab("upcoming"); }}
+          onRecap={()=>{ setHomeMode(homeMode==="recap"?null:"recap"); if(homeMode==="recap"){setRecapPosts(null);setRecapUrl("");} }}
+          homeMode={homeMode}
+          past={past}
+          recapUrl={recapUrl} setRecapUrl={setRecapUrl}
+          recapLoading={recapLoading} recapError={recapError} recapPosts={recapPosts}
+          onGenerateRecap={()=>{ if(recapUrl.trim()) setPromptModal({action:"recap"}); }}
+          activePlatforms={activePlatforms}
+          settings={settings}
+          settingsSetup={settings.setupComplete}
+          onOpenSettings={()=>setShowSettings(true)}
+          freePosts={freePosts} freeGenerating={freeGenerating}
+          freeTopic={freeTopic} setFreeTopic={setFreeTopic}
+          onGenerateFreePost={(topic)=>setPromptModal({action:"freepost", topic})}
+          onOpenFreeModal={(platformKey, text)=>{
+            setModal({event:{id:"freepost",title:"Free post",date:null,imageUrl:null,url:""},platformKey,text,editText:text});
+          }}
+          onClearFree={()=>{ setFreePosts(null); setFreeTopic(""); }}
+          onOpenRecapModal={(platformKey, text)=>{
+            setModal({event:{id:"recap",title:"Past event recap",date:null,imageUrl:null,url:recapUrl},platformKey,text,editText:text});
+          }}
+          onClearRecap={()=>{ setRecapPosts(null); setRecapUrl(""); }}
+        />
       )}
 
+      {/* ── EVENTS UI ────────────────────────────────────────────── */}
+      {view==="events"&&(
+        <div>
       {/* Fetch Events */}
       <div style={{background:T.scanCard,borderBottom:"0.5px solid "+T.border,padding:"12px 20px"}}>
         <div style={{maxWidth:"1100px",margin:"0 auto"}}>
@@ -1215,11 +1303,16 @@ const generateRecap = async (customPrompt="") => {
 
       </div>
 
+        </div>
+      )}
+
       <style>{`
         @keyframes fadeSlide{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
         @keyframes modalIn{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}
         textarea:focus,input:focus{outline:1px solid #3B82F6}
+        .home-tile{transition:transform .15s;}
+        .home-tile:hover{transform:translateY(-2px);}
       `}</style>
     </div>
   );
@@ -1629,6 +1722,345 @@ function InstagramPreview({text}) {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+// HOME SCREEN — launch screen with three mode tiles
+// ═════════════════════════════════════════════════════════════════════════════
+function HomeScreen({T, isDark, onNewPost, onEvents, onRecap, homeMode, past, recapUrl, setRecapUrl, recapLoading, recapError, recapPosts, onGenerateRecap, activePlatforms, settings, settingsSetup, onOpenSettings, freePosts, freeGenerating, freeTopic, setFreeTopic, onGenerateFreePost, onOpenFreeModal, onClearFree, onOpenRecapModal, onClearRecap}) {
+
+  const [selectedPastId, setSelectedPastId] = useState(null);
+
+  const tiles = [
+    {
+      id:"newpost",
+      icon: <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M11 4v14M4 11h14" stroke="#185FA5" strokeWidth="2" strokeLinecap="round"/></svg>,
+      iconBg: isDark?"rgba(10,132,255,.15)":"#E6F1FB",
+      borderColor: "#185FA5",
+      label:"New post",
+      sub:"Write about any topic",
+    },
+    {
+      id:"events",
+      icon: <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><rect x="3" y="5" width="16" height="13" rx="2" stroke="#3B6D11" strokeWidth="1.5"/><path d="M8 5V3M14 5V3M3 9h16" stroke="#3B6D11" strokeWidth="1.5" strokeLinecap="round"/></svg>,
+      iconBg: isDark?"rgba(52,199,89,.12)":"#EAF3DE",
+      borderColor: "#3B6D11",
+      label:"Event posts",
+      sub:"From your events calendar",
+    },
+    {
+      id:"recap",
+      icon: <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M4 11a7 7 0 107 7" stroke="#854F0B" strokeWidth="1.5" strokeLinecap="round"/><path d="M4 7v4h4" stroke="#854F0B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+      iconBg: isDark?"rgba(255,159,10,.12)":"#FAEEDA",
+      borderColor: "#854F0B",
+      label:"Past event recap",
+      sub:"Pick from list or paste URL",
+    },
+  ];
+
+  return (
+    <div style={{maxWidth:"800px",margin:"0 auto",padding:"28px 20px"}}>
+
+      {/* Setup warning */}
+      {!settingsSetup&&(
+        <div style={{background:T.warning,border:"0.5px solid "+T.warningBorder,borderRadius:"12px",padding:"12px 16px",marginBottom:"20px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:"12px",flexWrap:"wrap"}}>
+          <div style={{fontSize:"13px",color:isDark?"#FF6961":"#C0392B"}}>⚠️ Setup incomplete — add your API key and configure platforms to get started.</div>
+          <button onClick={onOpenSettings} style={{background:isDark?"rgba(255,105,97,.2)":"rgba(192,57,43,.1)",color:isDark?"#FF6961":"#C0392B",border:"0.5px solid "+(isDark?"rgba(255,105,97,.4)":"rgba(192,57,43,.3)"),borderRadius:"16px",padding:"5px 14px",cursor:"pointer",fontSize:"12px",fontWeight:"600"}}>Open Settings →</button>
+        </div>
+      )}
+
+      {/* Greeting */}
+      <div style={{marginBottom:"24px"}}>
+        <div style={{fontSize:"22px",fontWeight:"700",color:T.text,letterSpacing:"-.3px",marginBottom:"4px"}}>What would you like to do?</div>
+        <div style={{fontSize:"13px",color:T.textSub}}>Choose a mode to get started.</div>
+      </div>
+
+      {/* Tiles */}
+      <div className="home-tiles" style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:"12px",marginBottom:"24px"}}>
+        {tiles.map(function(tile) {
+          var isActive = homeMode===tile.id;
+          var isEvents = tile.id==="events";
+          return (
+            <div key={tile.id} className="home-tile"
+              onClick={isEvents ? onEvents : function(){ if(tile.id==="newpost") onNewPost(); else onRecap(); }}
+              style={{
+                background:T.bgCard,
+                border:"1.5px solid "+(isActive?tile.borderColor:T.border),
+                borderRadius:"14px",
+                padding:"18px 14px",
+                cursor:"pointer",
+                display:"flex",flexDirection:"column",alignItems:"flex-start",gap:"10px",
+                boxShadow:isActive?"0 0 0 3px "+(tile.borderColor+"22"):"none",
+              }}>
+              <div style={{width:"42px",height:"42px",borderRadius:"10px",background:tile.iconBg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                {tile.icon}
+              </div>
+              <div>
+                <div style={{fontSize:"14px",fontWeight:"700",color:T.text,marginBottom:"3px"}}>{tile.label}</div>
+                <div style={{fontSize:"12px",color:T.textSub,lineHeight:"1.4"}}>{tile.sub}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── New Post expanded panel ───────────────────────────────── */}
+      {homeMode==="newpost"&&(
+        <NewPostPanel T={T} isDark={isDark} activePlatforms={activePlatforms} settings={settings}
+          freePosts={freePosts} freeGenerating={freeGenerating}
+          freeTopic={freeTopic} setFreeTopic={setFreeTopic}
+          onGenerate={onGenerateFreePost}
+          onOpenModal={onOpenFreeModal}
+          onClear={onClearFree}
+          onClose={function(){ onNewPost(); onClearFree(); }}
+        />
+      )}
+
+      {/* ── Recap expanded panel ─────────────────────────────────── */}
+      {homeMode==="recap"&&(
+        <RecapPanel T={T} isDark={isDark} past={past}
+          recapUrl={recapUrl} setRecapUrl={setRecapUrl}
+          recapLoading={recapLoading} recapError={recapError} recapPosts={recapPosts}
+          onGenerate={onGenerateRecap}
+          activePlatforms={activePlatforms}
+          selectedPastId={selectedPastId} setSelectedPastId={setSelectedPastId}
+          onOpenModal={onOpenRecapModal}
+          onClear={onClearRecap}
+          onClose={function(){ onRecap(); }}
+        />
+      )}
+
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// NEW POST PANEL — free-form topic → generate → platform cards
+// ═════════════════════════════════════════════════════════════════════════════
+function NewPostPanel({T, isDark, activePlatforms, settings, freePosts, freeGenerating, freeTopic, setFreeTopic, onGenerate, onOpenModal, onClear, onClose}) {
+  const [editedFree, setEditedFree] = React.useState({});
+
+  React.useEffect(function() {
+    if (freePosts) {
+      var init = {};
+      (activePlatforms||ALL_PLATFORMS).forEach(function(p){ init[p.key] = freePosts[p.key]||""; });
+      setEditedFree(init);
+    }
+  }, [freePosts]);
+
+  const handleKeyDown = function(e) {
+    if (e.key==="Enter" && !e.shiftKey && freeTopic.trim()) {
+      e.preventDefault();
+      onGenerate(freeTopic.trim());
+    }
+  };
+
+  return (
+    <div style={{background:T.bgCard,border:"1.5px solid #185FA5",borderRadius:"14px",padding:"20px",marginBottom:"16px",boxShadow:"0 0 0 3px rgba(24,95,165,.12)"}}>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"16px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
+          <div style={{width:"32px",height:"32px",borderRadius:"8px",background:isDark?"rgba(10,132,255,.15)":"#E6F1FB",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v12M2 8h12" stroke="#185FA5" strokeWidth="2" strokeLinecap="round"/></svg>
+          </div>
+          <div style={{fontSize:"15px",fontWeight:"700",color:T.text}}>New post</div>
+        </div>
+        <button onClick={onClose} style={{background:"transparent",border:"none",cursor:"pointer",fontSize:"20px",color:T.textSub,lineHeight:1,padding:"4px"}}>×</button>
+      </div>
+
+      {/* Topic input */}
+      {!freePosts&&(
+        <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+          <div style={{fontSize:"12px",color:T.textSub}}>What do you want to post about?</div>
+          <textarea
+            rows={3}
+            value={freeTopic}
+            onChange={function(e){ setFreeTopic(e.target.value); }}
+            onKeyDown={handleKeyDown}
+            placeholder="e.g. AACC Texas won the Chamber Award 2026, congratulations to the team..."
+            style={{width:"100%",boxSizing:"border-box",background:T.bgCardAlt,border:"0.5px solid "+T.border,borderRadius:"10px",padding:"12px 14px",color:T.text,fontSize:"13px",fontFamily:"inherit",resize:"vertical",lineHeight:"1.6",outline:"none"}}
+            autoFocus
+          />
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{fontSize:"11px",color:T.textSub}}>Press Enter or click Generate to continue</div>
+            <button
+              onClick={function(){ if(freeTopic.trim()) onGenerate(freeTopic.trim()); }}
+              disabled={!freeTopic.trim()||freeGenerating}
+              style={{background:freeTopic.trim()&&!freeGenerating?"#185FA5":T.btnGhost,color:freeTopic.trim()&&!freeGenerating?"#fff":T.textSub,border:"none",borderRadius:"8px",padding:"9px 20px",cursor:freeTopic.trim()&&!freeGenerating?"pointer":"not-allowed",fontSize:"13px",fontWeight:"700"}}>
+              {freeGenerating?"⏳ Generating…":"✨ Generate posts"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Generated platform cards */}
+      {freePosts&&(
+        <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"4px"}}>
+            <div style={{fontSize:"12px",color:T.textSub,lineHeight:"1.5"}}>
+              <span style={{fontWeight:"600",color:T.text}}>Topic:</span> {freeTopic}
+            </div>
+            <button onClick={function(){ onClear(); setEditedFree({}); }}
+              style={{background:"transparent",border:"0.5px solid "+T.border,borderRadius:"6px",padding:"4px 10px",cursor:"pointer",color:T.textSub,fontSize:"11px"}}>
+              ↺ New topic
+            </button>
+          </div>
+          {(activePlatforms||ALL_PLATFORMS).map(function(p) {
+            var txt = editedFree[p.key]!==undefined ? editedFree[p.key] : (freePosts[p.key]||"");
+            if (!txt) return null;
+            return (
+              <PlatformCard key={p.key} p={p} T={T}
+                externalText={txt}
+                savedText={freePosts[p.key]||""}
+                onUpdateText={function(val){ setEditedFree(function(prev){ var n={}; Object.keys(prev).forEach(function(k){n[k]=prev[k];}); n[p.key]=val; return n; }); }}
+                onAddToQueue={function(){}}
+                onIsQueued={function(){ return false; }}
+                onOpenModal={function(){ onOpenModal(p.key, txt); }}
+                isPosted={false}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// RECAP PANEL — pick past event or paste URL → generate recap posts
+// ═════════════════════════════════════════════════════════════════════════════
+function RecapPanel({T, isDark, past, recapUrl, setRecapUrl, recapLoading, recapError, recapPosts, onGenerate, activePlatforms, selectedPastId, setSelectedPastId, onOpenModal, onClear, onClose}) {
+  const [editedRecap, setEditedRecap] = React.useState({});
+
+  React.useEffect(function() {
+    if (recapPosts) {
+      var init = {};
+      (activePlatforms||ALL_PLATFORMS).forEach(function(p){ init[p.key] = recapPosts[p.key]||""; });
+      setEditedRecap(init);
+    }
+  }, [recapPosts]);
+
+  var selectEvent = function(ev) {
+    setSelectedPastId(ev.id);
+    setRecapUrl(ev.url||"");
+  };
+
+  var clearUrl = function() {
+    setSelectedPastId(null);
+    setRecapUrl("");
+  };
+
+  var canGenerate = recapUrl.trim().length > 0;
+
+  return (
+    <div style={{background:T.bgCard,border:"1.5px solid #854F0B",borderRadius:"14px",padding:"20px",marginBottom:"16px",boxShadow:"0 0 0 3px rgba(133,79,11,.1)"}}>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"16px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
+          <div style={{width:"32px",height:"32px",borderRadius:"8px",background:isDark?"rgba(255,159,10,.12)":"#FAEEDA",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8a5 5 0 105 5" stroke="#854F0B" strokeWidth="1.5" strokeLinecap="round"/><path d="M3 5v3h3" stroke="#854F0B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </div>
+          <div style={{fontSize:"15px",fontWeight:"700",color:T.text}}>Past event recap</div>
+        </div>
+        <button onClick={onClose} style={{background:"transparent",border:"none",cursor:"pointer",fontSize:"20px",color:T.textSub,lineHeight:1,padding:"4px"}}>×</button>
+      </div>
+
+      {!recapPosts&&(
+        <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
+
+          {/* Past events list */}
+          {past&&past.length>0&&(
+            <div>
+              <div style={{fontSize:"12px",color:T.textSub,marginBottom:"8px"}}>Pick a past event</div>
+              <div style={{display:"flex",flexDirection:"column",gap:"5px",maxHeight:"200px",overflowY:"auto"}}>
+                {past.slice().sort(function(a,b){ return localDate(b.date)-localDate(a.date); }).map(function(ev) {
+                  var isSelected = selectedPastId===ev.id;
+                  return (
+                    <div key={ev.id} onClick={function(){ isSelected ? clearUrl() : selectEvent(ev); }}
+                      style={{display:"flex",alignItems:"center",gap:"10px",padding:"8px 12px",borderRadius:"8px",cursor:"pointer",
+                        background:isSelected?(isDark?"rgba(133,79,11,.2)":"#FAEEDA"):T.bgCardAlt,
+                        border:"0.5px solid "+(isSelected?"#854F0B":T.border),
+                        transition:"all .12s"}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:"13px",fontWeight:isSelected?"700":"500",color:isSelected?"#BA7517":T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.title}</div>
+                        <div style={{fontSize:"11px",color:T.textSub,marginTop:"1px"}}>📅 {fmtDate(ev.date)}</div>
+                      </div>
+                      {isSelected&&<span style={{fontSize:"14px",color:"#BA7517",flexShrink:0}}>✓</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Divider */}
+          <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
+            <div style={{flex:1,height:"0.5px",background:T.border}}/>
+            <div style={{fontSize:"11px",color:T.textSub,whiteSpace:"nowrap"}}>{past&&past.length>0?"or paste a URL":"paste a URL"}</div>
+            <div style={{flex:1,height:"0.5px",background:T.border}}/>
+          </div>
+
+          {/* URL input */}
+          <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
+            <input type="url" value={selectedPastId ? "" : recapUrl}
+              onChange={function(e){ clearUrl(); setRecapUrl(e.target.value); }}
+              placeholder="https://your-org.com/events/past-event"
+              style={{flex:1,minWidth:"200px",background:T.bgCardAlt,border:"0.5px solid "+T.border,borderRadius:"8px",padding:"9px 12px",color:T.text,fontSize:"13px",outline:"none",fontFamily:"inherit"}}
+            />
+          </div>
+
+          {/* Current selection summary */}
+          {canGenerate&&(
+            <div style={{background:isDark?"rgba(133,79,11,.1)":"#FEF3E2",border:"0.5px solid #BA751733",borderRadius:"8px",padding:"8px 12px",fontSize:"12px",color:"#BA7517"}}>
+              {selectedPastId ? "Selected: "+((past||[]).find(function(e){return e.id===selectedPastId;})||{}).title : "URL: "+recapUrl}
+            </div>
+          )}
+
+          {/* Error */}
+          {recapError&&<div style={{background:"rgba(127,29,29,.3)",border:"1px solid #F87171",borderRadius:"8px",padding:"10px 14px",color:"#FCA5A5",fontSize:"13px"}}>❌ {recapError}</div>}
+
+          {/* Generate button */}
+          <div style={{display:"flex",justifyContent:"flex-end"}}>
+            <button onClick={onGenerate} disabled={!canGenerate||recapLoading}
+              style={{background:canGenerate&&!recapLoading?"#854F0B":T.btnGhost,color:canGenerate&&!recapLoading?"#fff":T.textSub,border:"none",borderRadius:"8px",padding:"10px 22px",cursor:canGenerate&&!recapLoading?"pointer":"not-allowed",fontSize:"13px",fontWeight:"700"}}>
+              {recapLoading?"⏳ Generating…":"✍️ Generate recap posts"}
+            </button>
+          </div>
+
+        </div>
+      )}
+
+      {/* Generated recap platform cards */}
+      {recapPosts&&(
+        <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"4px"}}>
+            <div style={{fontSize:"12px",color:T.textSub}}>
+              <span style={{fontWeight:"600",color:T.text}}>Recap posts ready</span>
+            </div>
+            <button onClick={function(){ onClear(); setEditedRecap({}); setSelectedPastId(null); }}
+              style={{background:"transparent",border:"0.5px solid "+T.border,borderRadius:"6px",padding:"4px 10px",cursor:"pointer",color:T.textSub,fontSize:"11px"}}>
+              ↺ New recap
+            </button>
+          </div>
+          {(activePlatforms||ALL_PLATFORMS).map(function(p) {
+            var txt = editedRecap[p.key]!==undefined ? editedRecap[p.key] : (recapPosts[p.key]||"");
+            if (!txt) return null;
+            return (
+              <PlatformCard key={p.key} p={p} T={T}
+                externalText={txt}
+                savedText={recapPosts[p.key]||""}
+                onUpdateText={function(val){ setEditedRecap(function(prev){ var n={}; Object.keys(prev).forEach(function(k){n[k]=prev[k];}); n[p.key]=val; return n; }); }}
+                onAddToQueue={function(){}}
+                onIsQueued={function(){ return false; }}
+                onOpenModal={function(){ onOpenModal(p.key, txt); }}
+                isPosted={false}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 // PUBLISHED POSTS TAB — read-only archive of confirmed published posts
 // ═════════════════════════════════════════════════════════════════════════════
 function PublishedPostsTab({T, publishedPosts, events, activePlatforms, onClear}) {
@@ -1966,21 +2398,25 @@ function PostEditor({T,post, editedPost, eventId, event, onUpdateText, onSaveEdi
 // ═════════════════════════════════════════════════════════════════════════════
 // PROMPT MODAL — custom guidance input before generating posts
 // ═════════════════════════════════════════════════════════════════════════════
-function PromptModal({T, isPast, isRecap, onConfirm, onCancel}) {
+function PromptModal({T, isPast, isRecap, isFree, freeTopic, onConfirm, onCancel}) {
   const [txt, setTxt] = React.useState("");
   const inputRef = React.useRef(null);
   useEffect(()=>{ if(inputRef.current) inputRef.current.focus(); },[]);
 
-  const title   = isRecap  ? "Generate Recap"
+  const title   = isFree   ? "Generate Posts"
+                : isRecap  ? "Generate Recap"
                 : isPast   ? "Generate Recap Posts"
                 :            "Generate Posts";
-  const context = isRecap  ? "recap posts for this past event"
+  const context = isFree   ? "posts about this topic"
+                : isRecap  ? "recap posts for this past event"
                 : isPast   ? "past-tense recap posts for this event"
                 :            "upcoming event posts";
 
-  const examples = isRecap||isPast
-    ? ["Thank [name] for their amazing talk", "Highlight the networking that happened", "Celebratory and fun with an Aussie flavour", "Serious and professional tone"]
-    : ["Focus on the networking opportunity", "Mention the venue has great food", "Fun with an Aussie theme 🦘", "Formal and professional tone"];
+  const examples = isFree
+    ? ["Celebratory and upbeat tone", "Professional and formal", "Fun with an Aussie flavour 🦘", "Short and punchy"]
+    : (isRecap||isPast
+      ? ["Thank [name] for their amazing talk", "Highlight the networking that happened", "Celebratory and fun with an Aussie flavour", "Serious and professional tone"]
+      : ["Focus on the networking opportunity", "Mention the venue has great food", "Fun with an Aussie theme 🦘", "Formal and professional tone"]);
 
   const handleKey = (e) => {
     if (e.key==="Enter" && !e.shiftKey) { e.preventDefault(); onConfirm(txt.trim()); }
