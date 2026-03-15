@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-  <title>Social Media Assistant v2.10</title>
+  <title>Social Media Assistant v2.15</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -67,11 +67,12 @@ const LIGHT = {
   scanCard:"#FFFFFF",
 };
 const SK_THEME = "sma-theme-v1";
-const VERSION = "v2.10";
+const VERSION = "v2.15";
 
 const SK_EVENTS = "aacc-events-v3";
 const SK_POSTS  = "aacc-posts-v3";
-const SK_SCAN   = "aacc-last-scan-v3";
+const SK_SCAN    = "aacc-last-scan-v3";
+const SK_ARCHIVE = "aacc-published-v1";
 
 const TODAY = new Date();
 TODAY.setHours(0,0,0,0);
@@ -618,7 +619,10 @@ function App() {
   const [queue,       setQueue]       = useState([]);
   const [showBatch,   setShowBatch]   = useState(false);
   const [postedPlatforms, setPostedPlatforms] = useState({});
+  const [publishedPosts,  setPublishedPosts]  = useState({});
   const [promptModal, setPromptModal]   = useState(null); // {eventId, action, event} or {action:'recap'}
+  const [showMenu,    setShowMenu]      = useState(false);
+  const [showInfo,    setShowInfo]      = useState(false);
 
   const toggleTheme = () => {
     const n = !isDark;
@@ -680,6 +684,7 @@ function App() {
         }
       } catch {}
       try { const sc=localStorage.getItem(SK_SCAN); if(sc) setLastScan(sc); } catch {}
+      try { const ap=localStorage.getItem(SK_ARCHIVE); if(ap) setPublishedPosts(JSON.parse(ap)); } catch {}
     })();
   },[]);
 
@@ -691,6 +696,16 @@ function App() {
     setSettings(s);
     try { localStorage.setItem(SK_SETTINGS, JSON.stringify(s)); } catch {}
     toast("Settings saved ✓");
+  };
+
+  const savePublishedPost = (eventId, platformKey, text) => {
+    const key = eventId+":"+platformKey;
+    const entry = {text, postedAt:new Date().toISOString(), platformKey, eventId};
+    setPublishedPosts(prev => {
+      const next = {...prev, [key]:entry};
+      try { localStorage.setItem(SK_ARCHIVE, JSON.stringify(next)); } catch {}
+      return next;
+    });
   };
 
   // ── Active platforms (from settings) ──────────────────────────────────────
@@ -850,7 +865,7 @@ const generateRecap = async (customPrompt="") => {
     const orgName = settings.orgName || "";
     const hashtags = settings.hashtags || "";
     try {
-      const data = await callClaude([{role:"user",content:"Write social media recap posts for this past event.\nEvent page URL: "+recapUrl+"\n\nPast tense. Follow the format and char limits strictly.\n{\n  "+platformList+"\n}\n"+(orgName?"Organisation: "+orgName+"\n":"")+(hashtags?"Hashtags: "+hashtags+"\n":"")+"IMPORTANT: Each post MUST include a link back to the event page URL above.${customPrompt?" Additional guidance from the user (IMPORTANT — prioritise this): "+customPrompt:""}\nReturn ONLY valid JSON, no markdown."}],
+      const data = await callClaude([{role:"user",content:`Write social media recap posts for this past event.\nEvent page URL: ${recapUrl}\n\nPast tense. Follow the format and char limits strictly.\n{\n  ${platformList}\n}\n${orgName?"Organisation: "+orgName+"\n":""}${hashtags?"Hashtags: "+hashtags+"\n":""}IMPORTANT: Each post MUST include a link back to the event page URL above.${customPrompt?" Additional guidance from the user (IMPORTANT — prioritise this): "+customPrompt:""}\nReturn ONLY valid JSON, no markdown.`}],
         "Return ONLY valid JSON. No markdown fences. No explanation. You MUST count characters and stay within the HARD limits specified. If a post exceeds the limit, cut it down before returning.", settings);
       const text=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
       const match=text.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/);
@@ -906,6 +921,7 @@ const generateRecap = async (customPrompt="") => {
       {modal&&<PreviewModal modal={modal} settings={settings} onClose={()=>setModal(null)}
         onUpdateText={(t)=>{ setModal(m=>({...m,text:t,editText:t})); updateEditedPost(modal.event.id, modal.platformKey, t); }}
         onPosted={(pKey)=>{ setPostedPlatforms(prev=>({...prev,[modal.event.id+":"+pKey]:true})); }}
+        onConfirmPosted={(pKey, txt)=>{ savePublishedPost(modal.event.id, pKey, txt); setModal(null); }}
       />}
       {showExport&&<ExportModal events={events} posts={posts} editedPosts={editedPosts} onClose={()=>setShowExport(false)} toast={toast} activePlatforms={activePlatforms}/>}
       {showBatch&&<BatchConfirmModal queue={queue} events={events} settings={settings}
@@ -1067,7 +1083,7 @@ const generateRecap = async (customPrompt="") => {
             {settings.eventSourceUrl?settings.eventSourceUrl.replace(/^https?:\/\//,""):"Configure event source in Settings"} · {TODAY.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"})}
           </div>
           <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
-            {[{val:events.length,label:"Total"},{val:upcoming.length,label:"Upcoming"},{val:past.length,label:"Past"},{val:withPosts.length,label:"Posts ready",green:true}].map(s=>(
+            {[{val:events.length,label:"Total"},{val:upcoming.length,label:"Upcoming"},{val:past.length,label:"Past"},{val:Object.keys(publishedPosts).length,label:"Published",green:true}].map(s=>(
               <div key={s.label} style={{background:"rgba(255,255,255,.15)",backdropFilter:"blur(8px)",borderRadius:"10px",padding:"7px 14px",minWidth:"58px",textAlign:"center",border:"0.5px solid rgba(255,255,255,.2)"}}>
                 <div style={{fontSize:"18px",fontWeight:"700",color:s.green?"#30D158":"#fff",lineHeight:"1"}}>{s.val}</div>
                 <div style={{fontSize:"9px",color:"rgba(255,255,255,.7)",textTransform:"uppercase",letterSpacing:".08em",marginTop:"2px"}}>{s.label}</div>
@@ -1081,7 +1097,7 @@ const generateRecap = async (customPrompt="") => {
 
         {/* Tabs */}
         <div style={{display:"flex",gap:"2px",borderBottom:"1px solid "+(isDark?"rgba(255,255,255,.1)":"rgba(0,0,0,.1)"),marginBottom:"16px",background:isDark?"rgba(255,255,255,.03)":"rgba(0,0,0,.03)",borderRadius:"10px 10px 0 0",overflow:"visible",padding:"8px 8px 0",alignItems:"flex-end"}}>
-          {[{id:"upcoming",label:`🗓️ Upcoming (${upcoming.length})`},{id:"past",label:`✅ Past (${past.length})`},{id:"posts",label:`✍️ Posts (${withPosts.length})`},{id:"recap",label:"🔁 Recap"}].map(t=>(
+          {[{id:"upcoming",label:`🗓️ Upcoming (${upcoming.length})`},{id:"past",label:`✅ Past (${past.length})`},{id:"posts",label:"📤 Published ("+Object.keys(publishedPosts).length+")"},{id:"recap",label:"🔁 Recap"}].map(t=>(
             <button key={t.id} onClick={()=>setActiveTab(t.id)} style={{
               position:"relative",
               background:activeTab===t.id?(isDark?"#2C2C2E":"#FFFFFF"):(isDark?"rgba(255,255,255,.04)":"rgba(0,0,0,.04)"),
@@ -1125,13 +1141,16 @@ const generateRecap = async (customPrompt="") => {
             postedPlatforms={postedPlatforms}
           />)
         )}
-        {activeTab==="posts"&&(withPosts.length===0?<EmptyState icon="✍️" msg="No posts yet" sub='Go to Upcoming and click "Generate Post".'/>:
-          withPosts.map(ev=><PostCard key={ev.id} T={T} event={ev} post={posts[ev.id]} editedPost={editedPosts[ev.id]}
-            activePlatforms={activePlatforms}
-            onUpdateText={(pKey,val)=>updateEditedPost(ev.id,pKey,val)}
-            onSaveEdits={()=>saveEditedPost(ev.id)} onOpenModal={(pKey)=>openModal(ev,pKey)}
-            onAddToQueue={(pKey)=>addToQueue(ev,pKey)} onIsQueued={(pKey)=>isQueued(ev.id,pKey)}
-          />)
+        {activeTab==="posts"&&(
+          <PublishedPostsTab T={T} publishedPosts={publishedPosts} events={events} activePlatforms={activePlatforms}
+            onClear={(key)=>{
+              setPublishedPosts(prev=>{
+                const next={...prev}; delete next[key];
+                try{localStorage.setItem(SK_ARCHIVE,JSON.stringify(next));}catch{}
+                return next;
+              });
+            }}
+          />
         )}
 
         {activeTab==="recap"&&(
@@ -1210,27 +1229,29 @@ const generateRecap = async (customPrompt="") => {
 // ═════════════════════════════════════════════════════════════════════════════
 // PREVIEW / CONFIRM MODAL (with editable text + final confirm)
 // ═════════════════════════════════════════════════════════════════════════════
-function PreviewModal({modal, settings, onClose, onUpdateText, onPosted}) {
+function PreviewModal({modal, settings, onClose, onUpdateText, onPosted, onConfirmPosted}) {
   const _pmTheme = localStorage.getItem("sma-theme-v1"); const _pmDark = _pmTheme===null||_pmTheme==="dark"; const T = _pmDark ? DARK : LIGHT;
   const {event, platformKey} = modal;
   const [text, setText] = useState(modal.text);
-  const [posted, setPosted] = useState(false);
+  // phase: "edit" | "confirm"
+  const [phase, setPhase] = useState("edit");
   const [postNote, setPostNote] = useState("");
   const [postSteps, setPostSteps] = useState([]);
   const pCfg = ALL_PLATFORMS.find(p=>p.key===platformKey);
   if(!pCfg) return null;
 
-  const handleTextChange = (val) => {
-    setText(val);
-    onUpdateText(val);
-  };
+  const handleTextChange = (val) => { setText(val); onUpdateText(val); };
 
   const handleConfirm = () => {
     const result = pCfg.postAction(text, settings, event);
     setPostNote(result.note);
     setPostSteps(result.steps||[]);
-    setPosted(true);
+    setPhase("confirm");
     if (onPosted) onPosted(platformKey);
+  };
+
+  const handleYesPosted = () => {
+    if (onConfirmPosted) onConfirmPosted(platformKey, text);
   };
 
   const charOver = platformKey==="twitter" && text.length>280;
@@ -1258,65 +1279,65 @@ function PreviewModal({modal, settings, onClose, onUpdateText, onPosted}) {
               <div style={{fontSize:"11px",color:T.textSub}}>{event.title}</div>
             </div>
           </div>
-          <button onClick={onClose} style={{background:"transparent",color:T.textSub,border:"none",cursor:"pointer",fontSize:"22px",lineHeight:1,padding:"4px"}}>×</button>
+          {phase==="edit"&&<button onClick={onClose} style={{background:"transparent",color:T.textSub,border:"none",cursor:"pointer",fontSize:"22px",lineHeight:1,padding:"4px"}}>×</button>}
         </div>
 
         <div style={{flex:1,overflowY:"auto",padding:"20px",display:"flex",flexDirection:"column",gap:"16px"}}>
-
-          {/* Editable text */}
-          <div>
-            <div style={{fontSize:"12px",color:T.textSub,textTransform:"uppercase",letterSpacing:"1px",marginBottom:"8px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <span>✏️ Edit before posting</span>
-              <span style={{color:charOver?"#F87171":text.length>pCfg.charLimit*0.9?"#FF9500":T.textSub}}>
-                {text.length}/{pCfg.charLimit} chars {charOver&&"⚠️ TOO LONG"}
-              </span>
-            </div>
-            <textarea
-              value={text}
-              onChange={e=>handleTextChange(e.target.value)}
-              rows={6}
-              style={{width:"100%",background:T.bgCardAlt,border:"1px solid "+(charOver?"#F87171":T.border),borderRadius:"8px",color:T.text,padding:"12px",fontSize:"13px",fontFamily:"inherit",resize:"vertical",boxSizing:"border-box",lineHeight:"1.6"}}
-            />
-          </div>
-
-          {/* Preview */}
-          <div>
-            <div style={{fontSize:"12px",color:T.textSub,textTransform:"uppercase",letterSpacing:"1px",marginBottom:"8px"}}>👁️ Live Preview</div>
-            {event.imageUrl&&(
-              <div style={{marginBottom:"10px",borderRadius:"8px",overflow:"hidden",border:"0.5px solid "+T.border,height:"100px"}}>
-                <img src={event.imageUrl} alt={event.title} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+          {phase==="edit"&&(
+            <>
+              {/* Editable text */}
+              <div>
+                <div style={{fontSize:"12px",color:T.textSub,textTransform:"uppercase",letterSpacing:"1px",marginBottom:"8px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span>✏️ Edit before posting</span>
+                  <span style={{color:charOver?"#F87171":text.length>pCfg.charLimit*0.9?"#FF9500":T.textSub}}>
+                    {text.length}/{pCfg.charLimit} chars {charOver&&"⚠️ TOO LONG"}
+                  </span>
+                </div>
+                <textarea value={text} onChange={e=>handleTextChange(e.target.value)} rows={6}
+                  style={{width:"100%",background:T.bgCardAlt,border:"1px solid "+(charOver?"#F87171":T.border),borderRadius:"8px",color:T.text,padding:"12px",fontSize:"13px",fontFamily:"inherit",resize:"vertical",boxSizing:"border-box",lineHeight:"1.6"}}
+                />
               </div>
-            )}
-            {renderPreview()}
-          </div>
+              {/* Preview */}
+              <div>
+                <div style={{fontSize:"12px",color:T.textSub,textTransform:"uppercase",letterSpacing:"1px",marginBottom:"8px"}}>👁️ Live Preview</div>
+                {event.imageUrl&&<div style={{marginBottom:"10px",borderRadius:"8px",overflow:"hidden",border:"0.5px solid "+T.border,height:"100px"}}><img src={event.imageUrl} alt={event.title} style={{width:"100%",height:"100%",objectFit:"cover"}}/></div>}
+                {renderPreview()}
+              </div>
+              {platformKey==="instagram"&&(
+                <div style={{padding:"8px 12px",background:"rgba(0,113,227,.06)",border:"0.5px solid rgba(0,113,227,.2)",borderRadius:"8px",fontSize:"12px",color:T.accent}}>
+                  📱 Instagram: text will be copied to clipboard and Instagram will open. Paste in the app or Creator Studio.
+                </div>
+              )}
+            </>
+          )}
 
-          {/* Platform note */}
-          {platformKey==="instagram"&&(
-            <div style={{padding:"8px 12px",background:"rgba(0,113,227,.06)",border:"0.5px solid rgba(0,113,227,.2)",borderRadius:"8px",fontSize:"12px",color:T.accent}}>
-              📱 Instagram: text will be copied to clipboard and Instagram will open. Paste in the app or Creator Studio.
+          {phase==="confirm"&&(
+            <div style={{display:"flex",flexDirection:"column",gap:"16px"}}>
+              {/* Steps */}
+              <div style={{background:"rgba(52,199,89,.1)",border:"0.5px solid rgba(52,199,89,.3)",borderRadius:"12px",padding:"16px 18px"}}>
+                <div style={{fontSize:"14px",fontWeight:"700",color:"#30D158",marginBottom:"10px"}}>✅ {postNote}</div>
+                {postSteps&&postSteps.length>0&&(
+                  <ol style={{margin:0,paddingLeft:"18px",display:"flex",flexDirection:"column",gap:"6px"}}>
+                    {postSteps.map(function(step,i){ return <li key={i} style={{fontSize:"13px",color:_pmDark?"#E0E0E0":"#333",lineHeight:"1.5"}}>{step}</li>; })}
+                  </ol>
+                )}
+              </div>
+              {/* Confirm question */}
+              <div style={{background:T.bgCardAlt,borderRadius:"12px",padding:"18px",textAlign:"center"}}>
+                <div style={{fontSize:"15px",fontWeight:"700",color:T.text,marginBottom:"6px"}}>Did you publish the post?</div>
+                <div style={{fontSize:"13px",color:T.textSub,marginBottom:"16px"}}>Confirming will save it to your Published archive in the Posts tab.</div>
+                <div style={{display:"flex",gap:"10px",justifyContent:"center"}}>
+                  <button onClick={onClose} style={{background:T.btnGhost,color:T.btnGhostText,border:"0.5px solid "+T.btnGhostBorder,borderRadius:"8px",padding:"10px 22px",cursor:"pointer",fontSize:"13px",fontWeight:"600"}}>Not yet</button>
+                  <button onClick={handleYesPosted} style={{background:"linear-gradient(135deg,#22C55E,#16A34A)",color:"#fff",border:"none",borderRadius:"8px",padding:"10px 24px",cursor:"pointer",fontSize:"13px",fontWeight:"700",boxShadow:"0 4px 12px rgba(34,197,94,.35)"}}>✅ Yes, I posted it!</button>
+                </div>
+              </div>
             </div>
           )}
         </div>
 
-        {/* Footer */}
-        <div style={{padding:"16px 20px",borderTop:"0.5px solid "+T.border}}>
-          {posted ? (
-            <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
-              <div style={{background:"rgba(52,199,89,.12)",border:"0.5px solid rgba(52,199,89,.3)",borderRadius:"10px",padding:"14px 16px"}}>
-                <div style={{fontSize:"13px",fontWeight:"700",color:"#30D158",marginBottom:"8px"}}>✅ {postNote}</div>
-                {postSteps&&postSteps.length>0&&(
-                  <ol style={{margin:0,paddingLeft:"18px",display:"flex",flexDirection:"column",gap:"5px"}}>
-                    {postSteps.map((step,i)=>(
-                      <li key={i} style={{fontSize:"13px",color:_pmDark?"#E0E0E0":"#333",lineHeight:"1.5"}}>{step}</li>
-                    ))}
-                  </ol>
-                )}
-              </div>
-              <div style={{display:"flex",justifyContent:"flex-end"}}>
-                <button onClick={onClose} style={{background:T.btnPrimary,color:T.btnPrimaryText,border:"none",borderRadius:"8px",padding:"9px 20px",cursor:"pointer",fontSize:"13px",fontWeight:"bold"}}>Done</button>
-              </div>
-            </div>
-          ):(
+        {/* Footer — only shown in edit phase */}
+        {phase==="edit"&&(
+          <div style={{padding:"16px 20px",borderTop:"0.5px solid "+T.border}}>
             <div style={{display:"flex",gap:"10px",justifyContent:"flex-end"}}>
               <button onClick={onClose} style={{background:"transparent",color:T.textSub,border:"0.5px solid "+T.btnGhostBorder,borderRadius:"8px",padding:"9px 20px",cursor:"pointer",fontSize:"13px"}}>Cancel</button>
               <button onClick={handleConfirm} disabled={charOver} style={{
@@ -1328,8 +1349,8 @@ function PreviewModal({modal, settings, onClose, onUpdateText, onPosted}) {
                 {pCfg.icon} Confirm & Post to {pCfg.label}
               </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1607,6 +1628,86 @@ function InstagramPreview({text}) {
   );
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+// PUBLISHED POSTS TAB — read-only archive of confirmed published posts
+// ═════════════════════════════════════════════════════════════════════════════
+function PublishedPostsTab({T, publishedPosts, events, activePlatforms, onClear}) {
+  const entries = Object.entries(publishedPosts).sort(function(a,b){ return b[1].postedAt > a[1].postedAt ? 1 : -1; });
+  if (entries.length === 0) {
+    return (
+      <div style={{textAlign:"center",padding:"60px 20px",border:"0.5px dashed "+T.border,borderRadius:"14px"}}>
+        <div style={{fontSize:"40px",marginBottom:"12px"}}>📤</div>
+        <div style={{fontSize:"15px",color:T.text,marginBottom:"6px",fontWeight:"500"}}>No published posts yet</div>
+        <div style={{fontSize:"13px",color:T.textSub}}>After posting, click "Yes, I posted it!" in the confirm step — posts will appear here as a read-only archive.</div>
+      </div>
+    );
+  }
+
+  // Group by event
+  var grouped = {};
+  entries.forEach(function(pair) {
+    var key = pair[0]; var entry = pair[1];
+    var eventId = entry.eventId;
+    if (!grouped[eventId]) grouped[eventId] = [];
+    grouped[eventId].push({archiveKey: key, entry: entry});
+  });
+
+  var platformMap = {};
+  (activePlatforms||ALL_PLATFORMS).forEach(function(p){ platformMap[p.key]=p; });
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+      {Object.entries(grouped).map(function(pair) {
+        var eventId = pair[0]; var items = pair[1];
+        var event = events.find(function(e){ return e.id===eventId; }) || {title:eventId, date:null};
+        return (
+          <div key={eventId} style={{background:T.bgCard,border:"0.5px solid "+T.border,borderRadius:"12px",overflow:"hidden",boxShadow:T.bg==="#F2F2F7"?"0 1px 3px rgba(0,0,0,.06)":"none"}}>
+            {/* Event header */}
+            <div style={{padding:"12px 16px",borderBottom:"0.5px solid "+T.border,display:"flex",alignItems:"center",gap:"12px",background:T.bgCardAlt}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:"700",color:T.text,fontSize:"14px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{event.title}</div>
+                <div style={{fontSize:"11px",color:T.textSub,marginTop:"2px"}}>📅 {fmtDate(event.date)}</div>
+              </div>
+              <div style={{display:"flex",gap:"6px",flexWrap:"wrap",justifyContent:"flex-end"}}>
+                {items.map(function(item){
+                  var p = platformMap[item.entry.platformKey];
+                  return p ? (
+                    <span key={item.archiveKey} style={{background:p.color+"22",color:p.color,fontSize:"11px",fontWeight:"700",padding:"2px 8px",borderRadius:"12px",border:"0.5px solid "+p.color+"44"}}>
+                      {p.icon} {p.label}
+                    </span>
+                  ) : null;
+                })}
+              </div>
+            </div>
+            {/* Platform entries */}
+            {items.map(function(item) {
+              var p = platformMap[item.entry.platformKey];
+              var postedDate = item.entry.postedAt ? new Date(item.entry.postedAt).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}) : "";
+              return (
+                <div key={item.archiveKey} style={{borderBottom:"0.5px solid "+T.border,padding:"12px 16px"}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"8px"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
+                      {p&&<div style={{width:"24px",height:"24px",borderRadius:"6px",background:p.color,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"11px",flexShrink:0}}>{p&&p.icon}</div>}
+                      <span style={{fontSize:"13px",fontWeight:"600",color:p?p.color:T.text}}>{p?p.label:item.entry.platformKey}</span>
+                      <span style={{fontSize:"11px",color:T.textSub}}>· Posted {postedDate}</span>
+                    </div>
+                    <button onClick={function(){ onClear(item.archiveKey); }}
+                      style={{background:"transparent",border:"none",cursor:"pointer",fontSize:"14px",color:T.textSub,padding:"2px 6px",borderRadius:"4px",lineHeight:1}}
+                      title="Remove from archive">🗑️</button>
+                  </div>
+                  <div style={{background:T.bgCardAlt,borderRadius:"8px",padding:"10px 12px",fontSize:"13px",color:T.textSub,lineHeight:"1.7",whiteSpace:"pre-wrap",fontFamily:"-apple-system,BlinkMacSystemFont,sans-serif",userSelect:"text"}}>
+                    {item.entry.text}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── MenuItem helper (for hamburger menu) ────────────────────────────────────────
 function MenuItem({icon, label, onClick, T}) {
   const [hover, setHover] = React.useState(false);
@@ -1682,7 +1783,7 @@ function EventCard({T,event,post,editedPost,isPast,isExpanded,isGenerating,onGen
           <div style={{borderRadius:"10px",overflow:"hidden",marginBottom:"12px",maxWidth:"260px"}}>
             <img src={event.imageUrl} alt={event.title} style={{width:"100%",height:"auto",objectFit:"cover",display:"block"}}/>
           </div>
-          <PostEditor T={T} post={post} editedPost={editedPost} eventId={event.id} event={event} onUpdateText={onUpdateText} onSaveEdits={onSaveEdits} onOpenModal={onOpenModal} onAddToQueue={onAddToQueue} onIsQueued={onIsQueued} activePlatforms={activePlatforms} postedPlatforms={postedPlatforms}/>
+          <PostEditor T={T} post={post} editedPost={editedPost} eventId={event.id} event={event} onUpdateText={onUpdateText} onSaveEdits={onSaveEdits} onOpenModal={onOpenModal} onAddToQueue={onAddToQueue} onIsQueued={onIsQueued} activePlatforms={activePlatforms} postedPlatforms={{}}/>
         </div>
       )}
     </div>
@@ -1692,7 +1793,7 @@ function EventCard({T,event,post,editedPost,isPast,isExpanded,isGenerating,onGen
 // ═════════════════════════════════════════════════════════════════════════════
 // POST CARD (Posts tab)
 // ═════════════════════════════════════════════════════════════════════════════
-function PostCard({T,event,post,editedPost,onUpdateText,onSaveEdits,onOpenModal,activePlatforms,onAddToQueue,onIsQueued,postedPlatforms}) {
+function PostCard({T,event,post,editedPost,onUpdateText,onSaveEdits,onOpenModal,activePlatforms,onAddToQueue,onIsQueued}) {
   const [collapsed, setCollapsed] = useState(false);
   const platformCount = (activePlatforms||ALL_PLATFORMS).filter(p=>post[p.key]).length;
   return (
@@ -1721,7 +1822,7 @@ function PostCard({T,event,post,editedPost,onUpdateText,onSaveEdits,onOpenModal,
       {!collapsed&&(
         <div style={{padding:"0 16px 16px"}}>
           {event.imageUrl&&<div style={{borderRadius:"10px",overflow:"hidden",marginBottom:"12px",maxWidth:"260px"}}><img src={event.imageUrl} alt={event.title} style={{width:"100%",height:"auto",objectFit:"cover",display:"block"}}/></div>}
-          <PostEditor T={T} post={post} editedPost={editedPost} eventId={event.id} event={event} onUpdateText={onUpdateText} onSaveEdits={onSaveEdits} onOpenModal={onOpenModal} onAddToQueue={onAddToQueue} onIsQueued={onIsQueued} activePlatforms={activePlatforms} postedPlatforms={postedPlatforms}/>
+          <PostEditor T={T} post={post} editedPost={editedPost} eventId={event.id} event={event} onUpdateText={onUpdateText} onSaveEdits={onSaveEdits} onOpenModal={onOpenModal} onAddToQueue={onAddToQueue} onIsQueued={onIsQueued} activePlatforms={activePlatforms} postedPlatforms={{}}/>
         </div>
       )}
     </div>
